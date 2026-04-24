@@ -20,7 +20,7 @@ Algoritma:
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from app.models.schemas import Lesson, Schedule, Subject, Teacher, parse_availability
+from app.models.schemas import Classroom, Lesson, Schedule, Subject, Teacher, parse_availability
 
 DAYS = 5
 PERIODS = 8
@@ -41,7 +41,7 @@ class SlotNeed:
 
 def generate_schedule(
     teachers: list[Teacher],
-    classrooms,   # list[Classroom] — circular import önlemek için tip anotasyonu yok
+    classrooms: list[Classroom],
     subjects: list[Subject],
 ) -> Schedule:
     teacher_map = {t.id: t for t in teachers}

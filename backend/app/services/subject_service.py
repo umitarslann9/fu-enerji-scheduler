@@ -1,4 +1,5 @@
 from fastapi import HTTPException
+from sqlalchemy import delete as sql_delete
 from sqlmodel import Session, select
 
 from app.models.schemas import (
@@ -66,11 +67,8 @@ def delete(session: Session, subject_id: int) -> None:
         raise HTTPException(status_code=404, detail="Subject not found")
 
     # Association link'leri önce sil; cascade yoksa FK kısıtı ihlal olur
-    links = session.exec(
-        select(ClassroomSubjectLink).where(ClassroomSubjectLink.subject_id == subject_id)
-    ).all()
-    for link in links:
-        session.delete(link)
-
+    session.execute(
+        sql_delete(ClassroomSubjectLink).where(ClassroomSubjectLink.subject_id == subject_id)
+    )
     session.delete(subject)
     session.commit()

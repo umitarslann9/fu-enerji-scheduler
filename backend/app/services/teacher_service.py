@@ -1,7 +1,7 @@
 from fastapi import HTTPException
 from sqlmodel import Session, select
 
-from app.models.schemas import Teacher, TeacherCreate, TeacherUpdate
+from app.models.schemas import Subject, Teacher, TeacherCreate, TeacherUpdate
 
 
 def get_all(session: Session) -> list[Teacher]:
@@ -36,5 +36,11 @@ def update(session: Session, teacher_id: int, data: TeacherUpdate) -> Teacher:
 
 def delete(session: Session, teacher_id: int) -> None:
     teacher = get_one(session, teacher_id)
+    linked = session.exec(select(Subject).where(Subject.teacher_id == teacher_id)).first()
+    if linked:
+        raise HTTPException(
+            status_code=409,
+            detail="Bu öğretmene bağlı dersler var. Önce dersleri silin.",
+        )
     session.delete(teacher)
     session.commit()

@@ -10,7 +10,6 @@ Tasarım kararları:
 
 from typing import Optional, List
 from sqlmodel import SQLModel, Field, Relationship
-from pydantic import field_validator
 import json
 
 
