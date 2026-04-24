@@ -154,3 +154,20 @@ class Schedule(SQLModel):
     generated_at: str  # ISO format timestamp
     is_feasible: bool
     message: Optional[str] = None  # "başarılı" veya infeasible nedeni
+
+
+# ============================================================
+# SCHEDULE RESULT (DB'de saklanan program kaydı)
+# ============================================================
+
+class ScheduleResult(SQLModel, table=True):
+    """
+    Üretilen programın DB kaydı.
+    Lesson listesini JSON string olarak saklar — SQLite'ta nested
+    array yoktur, serialize en temiz çözümdür.
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    lessons_json: str           # JSON-encoded list[Lesson]
+    generated_at: str
+    is_feasible: bool
+    message: Optional[str] = None
