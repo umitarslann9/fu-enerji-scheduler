@@ -1,7 +1,23 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-app = FastAPI(title="Fu Enerji Scheduler API", version="0.1.0")
+from app.db.database import init_db
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Uygulama başlarken DB tablolarını oluştur
+    init_db()
+    yield
+    # Kapanırken bir şey yapmıyoruz
+
+
+app = FastAPI(
+    title="Fu Enerji Scheduler API",
+    version="0.1.0",
+    lifespan=lifespan,
+)
 
 app.add_middleware(
     CORSMiddleware,
