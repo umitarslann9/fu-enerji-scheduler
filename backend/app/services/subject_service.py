@@ -54,8 +54,7 @@ def create(session: Session, data: SubjectCreate) -> SubjectRead:
         teacher_id=data.teacher_id,
     )
     session.add(subject)
-    session.commit()
-    session.refresh(subject)
+    session.flush()  # ID üret ama commit etme
 
     for classroom in classrooms:
         session.add(ClassroomSubjectLink(classroom_id=classroom.id, subject_id=subject.id))

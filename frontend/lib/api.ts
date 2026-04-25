@@ -18,16 +18,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   teachers: {
     list: () => request<Teacher[]>('/teachers'),
-    create: (name: string) =>
-      request<Teacher>('/teachers', { method: 'POST', body: JSON.stringify({ name }) }),
-    update: (id: number, data: { name?: string; availability?: string }) =>
+    create: (name: string, branch: string) =>
+      request<Teacher>('/teachers', { method: 'POST', body: JSON.stringify({ name, branch }) }),
+    update: (id: number, data: { name?: string; branch?: string; availability?: string }) =>
       request<Teacher>(`/teachers/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id: number) => request<void>(`/teachers/${id}`, { method: 'DELETE' }),
   },
   classrooms: {
     list: () => request<Classroom[]>('/classrooms'),
-    create: (name: string, grade: number) =>
-      request<Classroom>('/classrooms', { method: 'POST', body: JSON.stringify({ name, grade }) }),
+    create: (grade: number, section: string, student_count: number) =>
+      request<Classroom>('/classrooms', { method: 'POST', body: JSON.stringify({ grade, section, student_count }) }),
+    update: (id: number, data: { grade?: number; section?: string; student_count?: number }) =>
+      request<Classroom>(`/classrooms/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id: number) => request<void>(`/classrooms/${id}`, { method: 'DELETE' }),
   },
   subjects: {

@@ -8,7 +8,7 @@ Ders programı otomatik oluşturma uygulaması — okul idarecileri için CSP ta
 |---|---|---|
 | Frontend | Next.js 16 + TypeScript + Tailwind 4 + shadcn/ui | App Router, Vercel uyumu |
 | Backend | FastAPI + SQLModel + SQLite | Pydantic validation, async, savunması kolay |
-| Scheduler | Greedy + Backtracking (custom) | Kara kutu yok, her kararı açıklayabiliyorum |
+| Scheduler | CSP + Backtracking (custom) | Kara kutu yok, her kararı açıklayabiliyorum |
 | Deploy | Vercel (frontend) + Railway (backend) | — |
 
 ## Proje Yapısı
@@ -17,34 +17,42 @@ Ders programı otomatik oluşturma uygulaması — okul idarecileri için CSP ta
 fu-enerji-scheduler/
 ├── frontend/
 │   ├── app/
-│   │   ├── page.tsx           # Dashboard
-│   │   ├── teachers/          # Öğretmen CRUD + müsaitlik matrisi
-│   │   ├── classrooms/        # Sınıf CRUD
-│   │   ├── subjects/          # Ders CRUD
-│   │   └── schedule/          # Program oluştur + haftalık grid
+│   │   ├── page.tsx           # Dashboard (stat kartlar + son program)
+│   │   ├── teachers/          # Öğretmen CRUD + branş + müsaitlik matrisi
+│   │   ├── classrooms/        # Sınıf CRUD (sınıf + şube + öğrenci sayısı)
+│   │   ├── subjects/          # Ders CRUD (branştan otomatik doldurma)
+│   │   └── schedule/          # Program oluştur + sınıf sekmeli haftalık grid
 │   ├── components/
 │   │   ├── nav.tsx            # Üst navigasyon
-│   │   └── availability-grid.tsx  # 5×8 checkbox matrisi
+│   │   └── availability-grid.tsx  # 5×8 interaktif matris (yeşil/kırmızı/siyah)
 │   └── lib/
 │       ├── api.ts             # Typed API client
 │       └── types.ts           # Backend şemalarına karşılık TS tipleri
 ├── backend/
 │   └── app/
-│       ├── main.py            # FastAPI entry point + router kayıtları
-│       ├── db/database.py     # SQLite bağlantısı, get_session dependency
+│       ├── main.py            # FastAPI entry point + CORS (ALLOWED_ORIGINS env)
+│       ├── db/database.py     # SQLite bağlantısı + idempotent migration
 │       ├── models/schemas.py  # SQLModel tablo modelleri + Pydantic şemaları
 │       ├── routers/           # teachers / classrooms / subjects / schedule
-│       ├── services/          # İş mantığı katmanı (router'dan ayrı)
-│       └── scheduler/solver.py  # CSP algoritması
+│       ├── services/          # İş mantığı + cascade update katmanı
+│       └── scheduler/solver.py  # CSP + Backtracking algoritması
 └── ROADMAP.md
 ```
 
 ## Veri Modeli
 
-- **Teacher → Subject:** 1-to-many (her ders tek öğretmen)
+- **Teacher → Subject:** 1-to-many (her ders tek öğretmen); `branch` alanı taşır
+- **Classroom:** `grade` + `section` → `name` türetilir (`"9-A"`); `student_count` saklanır
 - **Classroom ↔ Subject:** many-to-many (`ClassroomSubjectLink` association table)
 - **Availability:** 5×8 boolean matrix, JSON string olarak DB'de saklanır
-- **ScheduleResult:** Üretilen programın JSON olarak SQLite'ta kalıcı saklanması
+- **ScheduleResult:** Üretilen programın `lessons_json` (JSON) olarak SQLite'ta kalıcı saklanması
+
+## Cascade Güncelleme Kuralları
+
+| Tetikleyici | Etkilenen |
+|---|---|
+| Öğretmen branşı değişir | İlgili `Subject.name` kayıtları + son `ScheduleResult.lessons_json` |
+| Sınıf grade/section değişir | `Classroom.name` yeniden türetilir + son `ScheduleResult.lessons_json` |
 
 ## Scheduler Algoritması (CSP)
 
@@ -65,6 +73,7 @@ Hard constraints: öğretmen çakışması yok · sınıf çakışması yok · a
 ### Backend
 ```bash
 cd backend
+cp .env.example .env   # gerekirse ALLOWED_ORIGINS düzenle
 uv sync
 uv run uvicorn app.main:app --reload --port 8000
 ```
@@ -72,6 +81,7 @@ uv run uvicorn app.main:app --reload --port 8000
 ### Frontend
 ```bash
 cd frontend
+cp .env.example .env.local   # gerekirse NEXT_PUBLIC_API_URL düzenle
 npm install
 npm run dev
 ```
@@ -82,11 +92,11 @@ npm run dev
 
 | Method | Yol | Açıklama |
 |---|---|---|
-| GET/POST | `/teachers` | Liste / ekle |
-| GET/PUT/DELETE | `/teachers/{id}` | Tek kayıt / güncelle / sil (dersi varsa 409) |
-| GET/POST | `/classrooms` | Liste / ekle |
-| GET/DELETE | `/classrooms/{id}` | Tek kayıt / sil (linkleri temizler) |
-| GET/POST | `/subjects` | Liste / ekle (classroom_ids dahil) |
+| GET / POST | `/teachers` | Liste / ekle (name + branch) |
+| GET / PUT / DELETE | `/teachers/{id}` | Tek kayıt / güncelle (branch cascade) / sil |
+| GET / POST | `/classrooms` | Liste / ekle (grade + section + student_count) |
+| GET / PUT / DELETE | `/classrooms/{id}` | Tek kayıt / güncelle (name cascade) / sil |
+| GET / POST | `/subjects` | Liste / ekle (classroom_ids dahil) |
 | DELETE | `/subjects/{id}` | Sil (linkleri temizler) |
 | POST | `/schedule/generate` | Solver çalıştır, sonucu DB'ye yaz |
 | GET | `/schedule` | Son üretilen programı döner |
@@ -94,21 +104,25 @@ npm run dev
 
 ## Geliştirme Durumu
 
-- [x] Proje iskeleti
-- [x] Veri modelleri (Teacher, Classroom, Subject, ScheduleResult)
-- [x] Database bağlantısı
-- [x] CRUD endpoints (service layer mimarisi)
-- [x] Scheduler algoritması (MRV + backtracking + block-based day-spread)
-- [x] Frontend sayfaları (5 sayfa, toast, loading state'ler)
-- [x] Availability grid: programlı slotlar görsel overlay (kırmızı) + müsait slot sayacı
-- [x] Navigasyondan "Program Oluştur" CTA butonu kaldırıldı
-- [ ] Seed data ("Örnek veriyle dene" butonu)
+- [x] Veri modelleri (Teacher + branch, Classroom + section + student_count, Subject, ScheduleResult)
+- [x] CRUD endpoints + service layer mimarisi
+- [x] Cascade update (branş → subject names + lessons_json; sınıf adı → lessons_json)
+- [x] Scheduler algoritması (MRV + backtracking + block-based)
+- [x] Frontend — 5 sayfa (Dashboard, Öğretmenler, Sınıflar, Dersler, Program)
+- [x] Availability grid (yeşil/kırmızı/siyah overlay)
+- [x] Öğretmen sayfası: branş, arama/filtre, ayrı düzenleme + müsaitlik butonları
+- [x] Sınıf sayfası: grade + section + öğrenci sayısı, düzenleme dialogu
+- [x] Dersler sayfası: öğretmen seçilince ders adı branştan otomatik dolar
+- [x] Dashboard: Öğretmen / Sınıf / Ders / Toplam Öğrenci stat kartları
+- [x] CORS env var + .env.example dosyaları
+- [x] DB migration: idempotent (init_db'de PRAGMA + ALTER TABLE)
+- [ ] Seed data ("Örnek veriyle dene")
 - [ ] Deploy (Vercel + Railway)
-- [ ] APPROACH.md (algoritma kararları ve alternatifleri)
+- [ ] İnfeasible schedule — hangi ders atanamadı detayı
 
 ## Kapsam Dışı
 
-Authentication · çoklu kullanıcı · oda/laboratuvar tahsisi · takvim export (.ics) · öğretmen tercihleri (soft constraint) · seed data endpoint
+Authentication · çoklu kullanıcı · oda/laboratuvar tahsisi · takvim export (.ics) · öğretmen tercihleri (soft constraint) · yedek öğretmen · seed data endpoint
 
 ## AI Kullanımı
 

@@ -1,7 +1,9 @@
+import json
+
 from fastapi import HTTPException
 from sqlmodel import Session, select
 
-from app.models.schemas import Subject, Teacher, TeacherCreate, TeacherUpdate
+from app.models.schemas import ScheduleResult, Subject, Teacher, TeacherCreate, TeacherUpdate
 
 
 def get_all(session: Session) -> list[Teacher]:
@@ -25,9 +27,35 @@ def create(session: Session, data: TeacherCreate) -> Teacher:
 
 def update(session: Session, teacher_id: int, data: TeacherUpdate) -> Teacher:
     teacher = get_one(session, teacher_id)
-    # exclude_unset: sadece request'te gönderilen alanlar güncellenir
-    for field, value in data.model_dump(exclude_unset=True).items():
+    update_data = data.model_dump(exclude_unset=True)
+
+    new_branch = update_data.get('branch')
+    branch_changed = new_branch is not None and new_branch != teacher.branch
+
+    for field, value in update_data.items():
         setattr(teacher, field, value)
+
+    if branch_changed:
+        # Bu öğretmene bağlı tüm derslerin adını güncelle
+        subjects = session.exec(select(Subject).where(Subject.teacher_id == teacher_id)).all()
+        subject_ids = {s.id for s in subjects}
+        for subject in subjects:
+            subject.name = new_branch
+            session.add(subject)
+
+        # Son programdaki subject_name alanlarını da güncelle
+        if subject_ids:
+            latest = session.exec(
+                select(ScheduleResult).order_by(ScheduleResult.id.desc())
+            ).first()
+            if latest:
+                lessons = json.loads(latest.lessons_json)
+                for lesson in lessons:
+                    if lesson.get('subject_id') in subject_ids:
+                        lesson['subject_name'] = new_branch
+                latest.lessons_json = json.dumps(lessons)
+                session.add(latest)
+
     session.add(teacher)
     session.commit()
     session.refresh(teacher)

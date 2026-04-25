@@ -152,14 +152,21 @@ export default function SubjectsPage() {
 
           <div className="space-y-1.5">
             <Label htmlFor="subj-teacher">Öğretmen</Label>
-            <Select value={teacherId} onValueChange={setTeacherId}>
+            <Select
+              value={teacherId}
+              onValueChange={(value) => {
+                setTeacherId(value)
+                const t = teachers.find((t) => t.id === parseInt(value))
+                if (t?.branch) setName(t.branch)
+              }}
+            >
               <SelectTrigger id="subj-teacher">
                 <SelectValue placeholder="Öğretmen seç…" />
               </SelectTrigger>
               <SelectContent>
                 {teachers.map((t) => (
                   <SelectItem key={t.id} value={String(t.id)}>
-                    {t.name}
+                    {t.name} {t.branch ? `(${t.branch})` : ''}
                   </SelectItem>
                 ))}
               </SelectContent>

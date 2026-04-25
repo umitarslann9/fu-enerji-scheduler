@@ -5,10 +5,10 @@ import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { api } from '@/lib/api'
 import type { Schedule } from '@/lib/types'
-import { BookOpen, Calendar, School, Users } from 'lucide-react'
+import { BookOpen, Calendar, GraduationCap, School, Users } from 'lucide-react'
 
 export default function DashboardPage() {
-  const [counts, setCounts] = useState({ teachers: 0, classrooms: 0, subjects: 0 })
+  const [counts, setCounts] = useState({ teachers: 0, classrooms: 0, subjects: 0, students: 0 })
   const [schedule, setSchedule] = useState<Schedule | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -24,6 +24,7 @@ export default function DashboardPage() {
           teachers: teachers.length,
           classrooms: classrooms.length,
           subjects: subjects.length,
+          students: classrooms.reduce((sum, c) => sum + (c.student_count ?? 0), 0),
         })
         setSchedule(sched)
       })
@@ -35,13 +36,14 @@ export default function DashboardPage() {
     { label: 'Öğretmen', value: counts.teachers, icon: Users },
     { label: 'Sınıf', value: counts.classrooms, icon: School },
     { label: 'Ders', value: counts.subjects, icon: BookOpen },
+    { label: 'Toplam Öğrenci', value: counts.students, icon: GraduationCap },
   ]
 
   return (
     <div className="space-y-6">
       <h1 className="text-xl font-semibold">Dashboard</h1>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map(({ label, value, icon: Icon }) => (
           <Card key={label}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">

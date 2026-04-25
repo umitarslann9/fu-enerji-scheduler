@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   Table,
   TableBody,
@@ -22,7 +23,7 @@ import {
 } from '@/components/ui/table'
 import { api } from '@/lib/api'
 import type { Schedule, Teacher } from '@/lib/types'
-import { Grid3X3, Loader2, Trash2 } from 'lucide-react'
+import { Grid3X3, Loader2, Pencil, Search, Trash2 } from 'lucide-react'
 
 function freeSlotCount(availability: string, scheduledSlots: Set<string>): number {
   try {
@@ -37,24 +38,27 @@ function freeSlotCount(availability: string, scheduledSlots: Set<string>): numbe
   }
 }
 
-function SlotBadge({ count }: { count: number }) {
-  return (
-    <span className="tabular-nums text-sm font-medium text-foreground">
-      {count}
-    </span>
-  )
-}
-
 export default function TeachersPage() {
   const [teachers, setTeachers] = useState<Teacher[]>([])
   const [schedule, setSchedule] = useState<Schedule | null>(null)
   const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+
+  // Yeni öğretmen ekleme
   const [newName, setNewName] = useState('')
+  const [newBranch, setNewBranch] = useState('')
   const [adding, setAdding] = useState(false)
 
-  const [editTeacher, setEditTeacher] = useState<Teacher | null>(null)
+  // Ad / branş düzenleme dialogu
+  const [editInfoTeacher, setEditInfoTeacher] = useState<Teacher | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editBranch, setEditBranch] = useState('')
+  const [savingInfo, setSavingInfo] = useState(false)
+
+  // Müsaitlik grid dialogu
+  const [editAvailTeacher, setEditAvailTeacher] = useState<Teacher | null>(null)
   const [editAvail, setEditAvail] = useState<boolean[][]>([])
-  const [saving, setSaving] = useState(false)
+  const [savingAvail, setSavingAvail] = useState(false)
 
   function load() {
     Promise.all([api.teachers.list(), api.schedule.latest()])
@@ -75,18 +79,17 @@ export default function TeachersPage() {
     )
   }
 
-  useEffect(() => {
-    load()
-  }, [])
+  useEffect(() => { load() }, [])
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault()
-    if (!newName.trim()) return
+    if (!newName.trim() || !newBranch.trim()) return
     setAdding(true)
     try {
-      await api.teachers.create(newName.trim())
+      await api.teachers.create(newName.trim(), newBranch.trim())
       toast.success(`${newName.trim()} eklendi.`)
       setNewName('')
+      setNewBranch('')
       load()
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Hata')
@@ -105,72 +108,146 @@ export default function TeachersPage() {
     }
   }
 
-  function openAvailability(t: Teacher) {
-    setEditTeacher(t)
-    setEditAvail(JSON.parse(t.availability) as boolean[][])
+  function openEditInfo(t: Teacher) {
+    setEditInfoTeacher(t)
+    setEditName(t.name)
+    setEditBranch(t.branch)
   }
 
-  async function handleSaveAvailability() {
-    if (!editTeacher) return
-    setSaving(true)
+  async function handleSaveInfo() {
+    if (!editInfoTeacher || !editName.trim() || !editBranch.trim()) return
+    setSavingInfo(true)
     try {
-      await api.teachers.update(editTeacher.id, { availability: JSON.stringify(editAvail) })
-      toast.success('Müsaitlik kaydedildi.')
-      setEditTeacher(null)
+      await api.teachers.update(editInfoTeacher.id, {
+        name: editName.trim(),
+        branch: editBranch.trim(),
+      })
+      toast.success('Kaydedildi.')
+      setEditInfoTeacher(null)
       load()
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Hata')
     } finally {
-      setSaving(false)
+      setSavingInfo(false)
     }
   }
+
+  function openEditAvail(t: Teacher) {
+    setEditAvailTeacher(t)
+    try {
+      setEditAvail(JSON.parse(t.availability) as boolean[][])
+    } catch {
+      setEditAvail(Array.from({ length: 5 }, () => Array(8).fill(true)))
+    }
+  }
+
+  async function handleSaveAvail() {
+    if (!editAvailTeacher) return
+    setSavingAvail(true)
+    try {
+      await api.teachers.update(editAvailTeacher.id, {
+        availability: JSON.stringify(editAvail),
+      })
+      toast.success('Müsaitlik kaydedildi.')
+      setEditAvailTeacher(null)
+      load()
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Hata')
+    } finally {
+      setSavingAvail(false)
+    }
+  }
+
+  const filtered = teachers.filter((t) => {
+    const q = search.toLowerCase()
+    return t.name.toLowerCase().includes(q) || t.branch.toLowerCase().includes(q)
+  })
 
   return (
     <div className="space-y-6">
       <h1 className="text-xl font-semibold">Öğretmenler</h1>
 
-      <form onSubmit={handleAdd} className="flex max-w-sm gap-2">
+      {/* Yeni öğretmen formu */}
+      <form onSubmit={handleAdd} className="flex max-w-lg gap-2">
         <Input
           placeholder="Öğretmen adı"
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
           disabled={adding}
+          className="flex-1"
         />
-        <Button type="submit" disabled={adding || !newName.trim()}>
+        <Input
+          placeholder="Branş"
+          value={newBranch}
+          onChange={(e) => setNewBranch(e.target.value)}
+          disabled={adding}
+          className="w-36"
+        />
+        <Button type="submit" disabled={adding || !newName.trim() || !newBranch.trim()}>
           {adding && <Loader2 className="mr-1 size-3 animate-spin" />}
           Ekle
         </Button>
       </form>
 
+      {/* Arama */}
+      {!loading && teachers.length > 0 && (
+        <div className="relative max-w-xs">
+          <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="İsim veya branşa göre ara…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-8"
+          />
+        </div>
+      )}
+
+      {/* Tablo */}
       {loading ? (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="size-4 animate-spin" /> Yükleniyor…
         </div>
       ) : teachers.length === 0 ? (
         <p className="text-sm text-muted-foreground">Henüz öğretmen eklenmedi.</p>
+      ) : filtered.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          "{search}" için sonuç bulunamadı.
+        </p>
       ) : (
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>İsim</TableHead>
+              <TableHead>Branş</TableHead>
               <TableHead>Müsaitlik</TableHead>
-              <TableHead className="w-28" />
+              <TableHead className="w-32" />
             </TableRow>
           </TableHeader>
           <TableBody>
-            {teachers.map((t) => (
+            {filtered.map((t) => (
               <TableRow key={t.id}>
                 <TableCell className="font-medium">{t.name}</TableCell>
+                <TableCell className="text-muted-foreground">{t.branch || '—'}</TableCell>
                 <TableCell>
-                  <SlotBadge count={freeSlotCount(t.availability, scheduledSlotsFor(t.id))} />
+                  <span className="tabular-nums text-sm font-medium">
+                    {freeSlotCount(t.availability, scheduledSlotsFor(t.id))}
+                  </span>
                 </TableCell>
                 <TableCell>
                   <div className="flex justify-end gap-1">
                     <Button
                       variant="outline"
                       size="icon-sm"
-                      onClick={() => openAvailability(t)}
-                      title="Müsaitliği Düzenle"
+                      onClick={() => openEditInfo(t)}
+                      title="Ad / Branş Düzenle"
+                    >
+                      <Pencil />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon-sm"
+                      onClick={() => openEditAvail(t)}
+                      title="Müsaitlik Düzenle"
                     >
                       <Grid3X3 />
                     </Button>
@@ -190,19 +267,58 @@ export default function TeachersPage() {
         </Table>
       )}
 
-      <Dialog open={!!editTeacher} onOpenChange={(open) => !open && setEditTeacher(null)}>
+      {/* Ad / Branş düzenleme dialogu */}
+      <Dialog open={!!editInfoTeacher} onOpenChange={(open) => !open && setEditInfoTeacher(null)}>
+        <DialogContent className="sm:max-w-xs">
+          <DialogHeader>
+            <DialogTitle>Öğretmeni Düzenle</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="info-name">İsim</Label>
+              <Input
+                id="info-name"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="Öğretmen adı"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="info-branch">Branş</Label>
+              <Input
+                id="info-branch"
+                value={editBranch}
+                onChange={(e) => setEditBranch(e.target.value)}
+                placeholder="Matematik"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={handleSaveInfo}
+              disabled={savingInfo || !editName.trim() || !editBranch.trim()}
+            >
+              {savingInfo && <Loader2 className="mr-1 size-3 animate-spin" />}
+              Kaydet
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Müsaitlik grid dialogu */}
+      <Dialog open={!!editAvailTeacher} onOpenChange={(open) => !open && setEditAvailTeacher(null)}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>{editTeacher?.name} — Müsaitlik</DialogTitle>
+            <DialogTitle>{editAvailTeacher?.name} — Müsaitlik</DialogTitle>
           </DialogHeader>
           <AvailabilityGrid
             value={editAvail}
             onChange={setEditAvail}
-            scheduledSlots={editTeacher ? scheduledSlotsFor(editTeacher.id) : undefined}
+            scheduledSlots={editAvailTeacher ? scheduledSlotsFor(editAvailTeacher.id) : undefined}
           />
           <DialogFooter>
-            <Button onClick={handleSaveAvailability} disabled={saving}>
-              {saving && <Loader2 className="mr-1 size-3 animate-spin" />}
+            <Button onClick={handleSaveAvail} disabled={savingAvail}>
+              {savingAvail && <Loader2 className="mr-1 size-3 animate-spin" />}
               Kaydet
             </Button>
           </DialogFooter>

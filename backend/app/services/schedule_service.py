@@ -1,5 +1,6 @@
 import json
 
+from fastapi import HTTPException
 from sqlmodel import Session, select
 
 from app.models.schemas import (
@@ -18,7 +19,16 @@ def run_generate(session: Session) -> Schedule:
     classrooms = session.exec(select(Classroom)).all()
     subjects = session.exec(select(Subject)).all()
 
-    schedule = generate_schedule(teachers, classrooms, subjects)
+    if not teachers or not classrooms or not subjects:
+        raise HTTPException(
+            status_code=422,
+            detail="Program oluşturmak için en az bir öğretmen, sınıf ve ders gereklidir.",
+        )
+
+    try:
+        schedule = generate_schedule(teachers, classrooms, subjects)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Solver hatası: {exc}") from exc
 
     result = ScheduleResult(
         lessons_json=json.dumps([lesson.model_dump() for lesson in schedule.lessons]),

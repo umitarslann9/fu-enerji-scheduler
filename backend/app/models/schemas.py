@@ -9,6 +9,7 @@ Tasarım kararları:
 """
 
 from typing import Optional, List
+from pydantic import field_validator
 from sqlmodel import SQLModel, Field, Relationship
 import json
 
@@ -28,8 +29,11 @@ def default_availability() -> str:
 
 
 def parse_availability(s: str) -> List[List[bool]]:
-    """JSON string → 5x8 matrix."""
-    return json.loads(s)
+    """JSON string → 5x8 matrix. Bozuk veri varsa tüm slotları müsait döndür."""
+    try:
+        return json.loads(s)
+    except (json.JSONDecodeError, TypeError):
+        return [[True] * PERIODS for _ in range(DAYS)]
 
 
 # ============================================================
@@ -55,6 +59,8 @@ class ClassroomSubjectLink(SQLModel, table=True):
 
 class TeacherBase(SQLModel):
     name: str = Field(min_length=1, max_length=100)
+    # default='' → mevcut DB kayıtlarında boş olabilir, min_length response'u kırmaz
+    branch: str = Field(default='', max_length=100)
     # JSON-encoded 5x8 matrix — SQLite için en pratik yol
     availability: str = Field(default_factory=default_availability)
 
@@ -65,8 +71,12 @@ class Teacher(TeacherBase, table=True):
 
 
 class TeacherCreate(TeacherBase):
-    """API'ye gelen create request."""
-    pass
+    @field_validator('branch')
+    @classmethod
+    def branch_required(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError('Branş zorunludur')
+        return v.strip()
 
 
 class TeacherRead(TeacherBase):
@@ -75,7 +85,15 @@ class TeacherRead(TeacherBase):
 
 class TeacherUpdate(SQLModel):
     name: Optional[str] = None
+    branch: Optional[str] = Field(default=None, max_length=100)
     availability: Optional[str] = None
+
+    @field_validator('branch')
+    @classmethod
+    def branch_not_empty(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and not v.strip():
+            raise ValueError('Branş boş olamaz')
+        return v
 
 
 # ============================================================
@@ -83,12 +101,14 @@ class TeacherUpdate(SQLModel):
 # ============================================================
 
 class ClassroomBase(SQLModel):
-    name: str = Field(min_length=1, max_length=50)   # örn "9-A"
-    grade: int = Field(ge=1, le=12)                  # 1-12. sınıf
+    grade: int = Field(ge=1, le=12)
+    section: str = Field(min_length=1, max_length=10)   # örn "A", "B"
+    student_count: int = Field(ge=0, default=0)
 
 
 class Classroom(ClassroomBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
+    name: str = Field(default='')   # "{grade}-{section}", servis tarafından güncellenir
     subjects: List["Subject"] = Relationship(
         back_populates="classrooms",
         link_model=ClassroomSubjectLink,
@@ -101,6 +121,20 @@ class ClassroomCreate(ClassroomBase):
 
 class ClassroomRead(ClassroomBase):
     id: int
+    name: str   # türetilmiş görüntü adı
+
+
+class ClassroomUpdate(SQLModel):
+    grade: Optional[int] = Field(default=None, ge=1, le=12)
+    section: Optional[str] = Field(default=None, max_length=10)
+    student_count: Optional[int] = Field(default=None, ge=0)
+
+    @field_validator('section')
+    @classmethod
+    def section_not_empty(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and not v.strip():
+            raise ValueError('Şube boş olamaz')
+        return v.strip() if v else v
 
 
 # ============================================================

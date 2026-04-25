@@ -18,6 +18,11 @@ Fu Enerji Case Study — Ders Programı Çizelgeleme Uygulaması
 | Blok dağıtım | Split: ≤3=[h], 4=[2,2], 5=[3,2], 6=[3,3] | Ardışık periyot garantisi; aynı günde tekrar yok |
 | Frontend veri çekme | `useClient` + useEffect | External API → Server Components değer üretmiyor |
 | Availability | Dialog (modal) | Sayfa temiz kalır; 5×8 grid inline overkill |
+| Teacher branş | Zorunlu alan (TeacherCreate validator) | Ders adı otomatik türetmek için gerekli; mevcut kayıtlar boş geçebilir (ResponseValidationError önlemi) |
+| Classroom modeli | grade + section + student_count | İnsan okunabilir ad (9-A) türetilir; istatistik için student_count saklanır |
+| Cascade güncelleme | Service layer, tek transaction | Branch değişince Subject.name + lessons_json güncellenir; sınıf adı değişince lessons_json güncellenir |
+| DB migration | Idempotent (PRAGMA table_info + ALTER TABLE) | Hem taze kurulum hem mevcut DB'yi destekler |
+| CORS | ALLOWED_ORIGINS env var | Farklı ortamlar için hardcode değil |
 
 ---
 
@@ -30,9 +35,9 @@ Fu Enerji Case Study — Ders Programı Çizelgeleme Uygulaması
 - `.gitignore`, README taslağı
 
 ### ✅ Adım 2 — Veri Modeli
-- `Teacher`, `Classroom`, `Subject`, `ClassroomSubjectLink` (SQLModel + table=True)
+- `Teacher` (name + branch), `Classroom` (grade + section + student_count + name), `Subject`, `ClassroomSubjectLink`
 - `Lesson`, `Schedule` (Pydantic only, scheduler çıktısı)
-- `ScheduleResult` (DB'de kalıcı saklamak için)
+- `ScheduleResult` (DB'de kalıcı saklama)
 - Availability: 5×8 boolean matrix → JSON string
 - Test: `backend/tests/test_models_sanity.py` ✓
 
@@ -41,13 +46,13 @@ Fu Enerji Case Study — Ders Programı Çizelgeleme Uygulaması
 ```
 backend/app/
 ├── services/
-│   ├── teacher_service.py    get_all, get_one, create, update, delete (409 if subjects)
-│   ├── classroom_service.py  get_all, get_one, create, delete (links temizlenir)
+│   ├── teacher_service.py    get_all, get_one, create, update (branch cascade), delete (409 if subjects)
+│   ├── classroom_service.py  get_all, get_one, create, update (name cascade), delete (links temizlenir)
 │   ├── subject_service.py    get_all, get_one, create, delete (links temizlenir)
 │   └── schedule_service.py   run_generate, get_latest
 └── routers/
     ├── teachers.py   GET/POST/GET{id}/PUT{id}/DELETE{id}
-    ├── classrooms.py GET/POST/GET{id}/DELETE{id}
+    ├── classrooms.py GET/POST/GET{id}/PUT{id}/DELETE{id}
     ├── subjects.py   GET/POST/GET{id}/DELETE{id}
     └── schedule.py   POST /generate, GET /
 ```
@@ -63,6 +68,11 @@ backend/app/
 - Hard constraints: öğretmen/sınıf çakışması · availability · blok içi ardışık periyotlar · aynı (ders,sınıf) aynı günde tekrar yok
 - `ScheduleResult` tablosuna JSON olarak yazılır; `GET /schedule` DB'den okur
 
+### ✅ Adım 4 — Cascade Güncelleme
+- Öğretmen branşı değişince → ilgili `Subject.name` kayıtları + son `ScheduleResult.lessons_json` güncellenir
+- Sınıf grade/section değişince → `Classroom.name` yeniden türetilir + son `ScheduleResult.lessons_json` güncellenir
+- Her iki cascade tek transaction içinde (session.flush + commit)
+
 ### ✅ Adım 5 — Frontend Sayfaları
 **Stack:** Next.js 16 + React 19 + Tailwind 4 + shadcn/ui  
 **Pattern:** `'use client'` + useState/useEffect (external API → SSR değersiz)
@@ -76,11 +86,10 @@ frontend/
 │   └── availability-grid.tsx  5×8 interaktif checkbox matrisi
 │                               (yeşil=müsait, kırmızı=programda dolu, siyah=müsait değil)
 └── app/
-    ├── page.tsx            Dashboard: 3 stat kart + son program durumu
-    ├── teachers/page.tsx   Liste + ekle + müsait slot sayacı + müsaitlik dialog
-    │                       (programlı slotlar overlay olarak görünür, değiştirilemez)
-    ├── classrooms/page.tsx Liste + ekle + sil
-    ├── subjects/page.tsx   Liste + ekle (select + checkbox sınıf seçimi; max 6 saat)
+    ├── page.tsx            Dashboard: 4 stat kart (öğretmen/sınıf/ders/toplam öğrenci) + son program
+    ├── teachers/page.tsx   Liste + arama/filtre (isim/branş) + ekle + ayrı düzenleme/müsaitlik butonları
+    ├── classrooms/page.tsx Liste + ekle + düzenle (grade+section+student_count) + sil
+    ├── subjects/page.tsx   Liste + ekle (öğretmen seçilince ders adı branştan otomatik dolar)
     └── schedule/page.tsx   Oluştur + classroom tabs + renkli haftalık grid
 ```
 
@@ -88,32 +97,28 @@ frontend/
 
 ## Kalan Adımlar
 
-### ✅ Adım 6 — UX İyileştirmeleri
-- [x] Loading state'leri (Loader2 spinner)
-- [x] Error handling + toast (sonner)
-- [x] Renk kodlaması (ders bazlı, inline HSL palette)
-- [x] Availability grid: yeşil/kırmızı/siyah renk kodlaması
-- [x] Öğretmen müsaitlik dialogu: programlı slotlar kırmızı overlay (salt-okunur)
-- [x] Müsait slot sayacı — programlı slotlar düşülmüş net sayı, plain text
-- [x] Navigasyondan "Program Oluştur" CTA butonu kaldırıldı
+### ⬜ Adım 6 — Seed Data
 - [ ] Seed data butonu ("Örnek veriyle dene") — Dashboard'a eklenecek
+- [ ] En az 3 sınıf, 5 öğretmen, 10 ders içeren örnek set
+
+### ⬜ Adım 7 — Hata Detayı
 - [ ] İnfeasible schedule daha ayrıntılı debug mesajı (hangi ders atanamadı)
 
-### ⬜ Adım 7 — Dokümantasyon
+### ⬜ Adım 8 — Dokümantasyon
 - [ ] `APPROACH.md`: problemi nasıl tanımladım, varsayımlar, kapsam dışı, alternatifler
 - [ ] README polish (canlı linkler eklenecek)
 
-### ⬜ Adım 8 — Deploy
+### ⬜ Adım 9 — Deploy
 - [ ] Frontend → Vercel (`NEXT_PUBLIC_API_URL` env var)
 - [ ] Backend → Railway (`scheduler.db` persist volume veya in-memory karar)
-- [ ] CORS: `allow_origins` Railway/Vercel URL'leri ile güncelle
+- [ ] CORS: `ALLOWED_ORIGINS` Railway/Vercel URL'leri ile güncelle
 - [ ] Canlı uçtan uca test
 
 ---
 
 ## Başarı Kriterleri
 
-- [ ] En az 3 sınıf, 5 öğretmen, 10 ders içeren seed data ile çalışıyor
+- [ ] Seed data ile sorunsuz çalışıyor (3 sınıf, 5 öğretmen, 10 ders)
 - [x] Infeasible durumda anlamlı hata mesajı
 - [x] UI'da çakışma görsel olarak yok (solver garantiler)
 - [ ] README self-explanatory (canlı link dahil)

@@ -1,13 +1,16 @@
 export interface Teacher {
   id: number
   name: string
+  branch: string
   availability: string // JSON 5×8 boolean matrix
 }
 
 export interface Classroom {
   id: number
-  name: string
   grade: number
+  section: string
+  student_count: number
+  name: string // "{grade}-{section}"
 }
 
 export interface Subject {
