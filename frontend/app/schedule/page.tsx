@@ -12,9 +12,9 @@ import {
 } from '@/components/ui/select'
 import { api } from '@/lib/api'
 import type { Classroom, Lesson, Schedule } from '@/lib/types'
-import { Loader2, RefreshCw } from 'lucide-react'
+import { FileDown, Loader2, RefreshCw } from 'lucide-react'
 
-const DAYS = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum']
+const DAYS = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma']
 
 const PALETTE = [
   { bg: 'hsl(214 100% 93%)', border: 'hsl(214 80% 78%)' },
@@ -84,6 +84,69 @@ export default function SchedulePage() {
     } finally {
       setGenerating(false)
     }
+  }
+
+  function handleDownloadPdf() {
+    const classroom = scheduledClassrooms.find((c) => String(c.id) === effectiveId)
+    if (!classroom || !schedule) return
+    const grid = buildGrid(schedule.lessons, classroom.id)
+
+    const dayHeaders = DAYS.map(
+      (d) => `<th style="border:1px solid #d1d5db;padding:8px 12px;background:#f9fafb;font-weight:600">${d}</th>`
+    ).join('')
+
+    const rows = Array.from({ length: 8 }, (_, period) => {
+      const cells = Array.from({ length: 5 }, (_, day) => {
+        const lesson = grid[period][day]
+        return lesson
+          ? `<td style="border:1px solid #d1d5db;padding:8px;vertical-align:top">
+               <div style="font-weight:600;font-size:12px;line-height:1.3">${lesson.subject_name}</div>
+               <div style="font-size:10px;color:#6b7280;margin-top:2px">${lesson.teacher_name}</div>
+             </td>`
+          : `<td style="border:1px solid #d1d5db;padding:8px;"></td>`
+      }).join('')
+      return `<tr>
+        <td style="border:1px solid #d1d5db;padding:8px;text-align:center;background:#f9fafb;font-weight:500;color:#374151">${period + 1}</td>
+        ${cells}
+      </tr>`
+    }).join('')
+
+    const html = `<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>${classroom.name} Ders Programı</title>
+<style>
+  body { font-family: system-ui, -apple-system, sans-serif; margin: 32px; color: #111827; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p  { font-size: 12px; color: #6b7280; margin: 0 0 20px; }
+  table { border-collapse: collapse; width: 100%; }
+  @media print { body { margin: 20px; } }
+</style>
+</head>
+<body>
+<h1>${classroom.name} Sınıfı — Ders Programı</h1>
+<p>Fu Enerji Scheduler · ${new Date().toLocaleDateString('tr-TR')}</p>
+<table>
+  <thead>
+    <tr>
+      <th style="border:1px solid #d1d5db;padding:8px 12px;background:#f9fafb;width:40px"></th>
+      ${dayHeaders}
+    </tr>
+  </thead>
+  <tbody>${rows}</tbody>
+</table>
+<script>window.onload = function() { window.print() }</script>
+</body>
+</html>`
+
+    const win = window.open('', '_blank')
+    if (!win) {
+      toast.error('Popup engelleyici PDF açılmasını engelledi. İzin verip tekrar deneyin.')
+      return
+    }
+    win.document.write(html)
+    win.document.close()
   }
 
   const scheduledClassroomIds = schedule
@@ -159,6 +222,10 @@ export default function SchedulePage() {
                 ))}
               </SelectContent>
             </Select>
+            <Button variant="outline" size="sm" onClick={handleDownloadPdf} title="PDF olarak indir">
+              <FileDown className="mr-1.5 size-4" />
+              PDF
+            </Button>
           </div>
 
           {(() => {

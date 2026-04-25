@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/table'
 import { api } from '@/lib/api'
 import type { Classroom, Subject, Teacher } from '@/lib/types'
-import { ChevronDown, Info, Loader2, Pencil, Plus, Trash2, X } from 'lucide-react'
+import { ChevronDown, Info, Loader2, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
 
 function ClassroomPicker({
   classrooms,
@@ -116,6 +116,7 @@ export default function SubjectsPage() {
   const [teacherId, setTeacherId] = useState('')
   const [classroomIds, setClassroomIds] = useState<number[]>([])
   const [adding, setAdding] = useState(false)
+  const [search, setSearch] = useState('')
 
   // Düzenleme dialogu
   const [editSubject, setEditSubject] = useState<Subject | null>(null)
@@ -220,6 +221,12 @@ export default function SubjectsPage() {
   const editFilteredTeachers = editName.trim()
     ? teachers.filter((t) => t.branch.toLowerCase() === editName.trim().toLowerCase())
     : teachers
+
+  const filtered = subjects.filter((s) => {
+    const q = search.toLowerCase()
+    const teacherName = (teacherMap[s.teacher_id] ?? '').toLowerCase()
+    return s.name.toLowerCase().includes(q) || teacherName.includes(q)
+  })
 
   return (
     <div className="space-y-6">
@@ -331,12 +338,26 @@ export default function SubjectsPage() {
         </form>
       )}
 
+      {!loading && subjects.length > 0 && (
+        <div className="relative max-w-xs">
+          <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Ders adı veya öğretmene göre ara…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-8"
+          />
+        </div>
+      )}
+
       {loading ? (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="size-4 animate-spin" /> Yükleniyor…
         </div>
       ) : subjects.length === 0 ? (
         <p className="text-sm text-muted-foreground">Henüz ders eklenmedi.</p>
+      ) : filtered.length === 0 ? (
+        <p className="text-sm text-muted-foreground">"{search}" için sonuç bulunamadı.</p>
       ) : (
         <Table>
           <TableHeader>
@@ -349,7 +370,7 @@ export default function SubjectsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {subjects.map((s) => (
+            {filtered.map((s) => (
               <TableRow key={s.id}>
                 <TableCell className="font-medium">{s.name}</TableCell>
                 <TableCell>{s.weekly_hours} saat</TableCell>

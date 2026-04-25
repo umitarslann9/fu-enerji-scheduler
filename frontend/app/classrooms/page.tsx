@@ -22,11 +22,13 @@ import {
 } from '@/components/ui/table'
 import { api } from '@/lib/api'
 import type { Classroom } from '@/lib/types'
-import { Loader2, Pencil, Trash2 } from 'lucide-react'
+import { Loader2, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
 
 export default function ClassroomsPage() {
   const [classrooms, setClassrooms] = useState<Classroom[]>([])
   const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [showForm, setShowForm] = useState(false)
 
   // Yeni sınıf ekleme
   const [grade, setGrade] = useState('')
@@ -51,6 +53,13 @@ export default function ClassroomsPage() {
 
   useEffect(() => { load() }, [])
 
+  function resetForm() {
+    setGrade('')
+    setSection('')
+    setStudentCount('')
+    setShowForm(false)
+  }
+
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault()
     const g = parseInt(grade)
@@ -60,9 +69,7 @@ export default function ClassroomsPage() {
     try {
       await api.classrooms.create(g, section.trim().toUpperCase(), sc)
       toast.success(`${g}-${section.trim().toUpperCase()} eklendi.`)
-      setGrade('')
-      setSection('')
-      setStudentCount('')
+      resetForm()
       load()
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Hata')
@@ -127,53 +134,100 @@ export default function ClassroomsPage() {
     parseInt(editStudentCount) >= 0 &&
     !isNaN(parseInt(editStudentCount))
 
+  const filtered = classrooms.filter((c) => {
+    const q = search.toLowerCase()
+    return (
+      c.name.toLowerCase().includes(q) ||
+      String(c.grade).includes(q) ||
+      c.section.toLowerCase().includes(q)
+    )
+  })
+
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold">Sınıflar</h1>
-
-      <form onSubmit={handleAdd} className="flex max-w-lg flex-wrap gap-2">
-        <div className="flex flex-col gap-1">
-          <Label className="text-xs text-muted-foreground">Sınıf (1-12)</Label>
-          <Input
-            placeholder="9"
-            type="number"
-            min={1}
-            max={12}
-            value={grade}
-            onChange={(e) => setGrade(e.target.value)}
-            disabled={adding}
-            className="w-24"
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <Label className="text-xs text-muted-foreground">Şube</Label>
-          <Input
-            placeholder="A"
-            value={section}
-            onChange={(e) => setSection(e.target.value)}
-            disabled={adding}
-            className="w-20"
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <Label className="text-xs text-muted-foreground">Öğrenci sayısı</Label>
-          <Input
-            placeholder="30"
-            type="number"
-            min={0}
-            value={studentCount}
-            onChange={(e) => setStudentCount(e.target.value)}
-            disabled={adding}
-            className="w-28"
-          />
-        </div>
-        <div className="flex items-end">
-          <Button type="submit" disabled={!canAdd}>
-            {adding && <Loader2 className="mr-1 size-3 animate-spin" />}
-            Ekle
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold">Sınıflar</h1>
+        {!showForm && (
+          <Button size="sm" onClick={() => setShowForm(true)}>
+            <Plus className="mr-1 size-3" />
+            Sınıf Ekle
           </Button>
+        )}
+      </div>
+
+      {showForm && (
+        <form
+          onSubmit={handleAdd}
+          className="max-w-md space-y-4 rounded-lg border p-4"
+        >
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-medium">Yeni Sınıf</h2>
+            <Button type="button" variant="ghost" size="icon-sm" onClick={resetForm}>
+              <X />
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="cls-grade">Sınıf (1-12)</Label>
+              <Input
+                id="cls-grade"
+                placeholder="9"
+                type="number"
+                min={1}
+                max={12}
+                value={grade}
+                onChange={(e) => setGrade(e.target.value)}
+                disabled={adding}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="cls-section">Şube</Label>
+              <Input
+                id="cls-section"
+                placeholder="A"
+                value={section}
+                onChange={(e) => setSection(e.target.value)}
+                disabled={adding}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="cls-students">Öğrenci</Label>
+              <Input
+                id="cls-students"
+                placeholder="30"
+                type="number"
+                min={0}
+                value={studentCount}
+                onChange={(e) => setStudentCount(e.target.value)}
+                disabled={adding}
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <Button type="submit" disabled={!canAdd}>
+              {adding && <Loader2 className="mr-1 size-3 animate-spin" />}
+              Ekle
+            </Button>
+            <Button type="button" variant="outline" onClick={resetForm}>
+              İptal
+            </Button>
+          </div>
+        </form>
+      )}
+
+      {!loading && classrooms.length > 0 && (
+        <div className="relative max-w-xs">
+          <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Sınıf veya şubeye göre ara…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-8"
+          />
         </div>
-      </form>
+      )}
 
       {loading ? (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -181,6 +235,8 @@ export default function ClassroomsPage() {
         </div>
       ) : classrooms.length === 0 ? (
         <p className="text-sm text-muted-foreground">Henüz sınıf eklenmedi.</p>
+      ) : filtered.length === 0 ? (
+        <p className="text-sm text-muted-foreground">"{search}" için sonuç bulunamadı.</p>
       ) : (
         <Table>
           <TableHeader>
@@ -192,7 +248,7 @@ export default function ClassroomsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {classrooms.map((c) => (
+            {filtered.map((c) => (
               <TableRow key={c.id}>
                 <TableCell className="font-medium">{c.grade}. sınıf</TableCell>
                 <TableCell>{c.section}</TableCell>

@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/table'
 import { api } from '@/lib/api'
 import type { Schedule, Teacher } from '@/lib/types'
-import { Grid3X3, Loader2, Pencil, Search, Trash2 } from 'lucide-react'
+import { Grid3X3, Loader2, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
 
 function slotCounts(availability: string, scheduledSlots: Set<string>): { free: number; total: number } {
   try {
@@ -49,6 +49,7 @@ export default function TeachersPage() {
   const [schedule, setSchedule] = useState<Schedule | null>(null)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [showForm, setShowForm] = useState(false)
 
   // Yeni öğretmen ekleme
   const [newName, setNewName] = useState('')
@@ -87,6 +88,12 @@ export default function TeachersPage() {
 
   useEffect(() => { load() }, [])
 
+  function resetForm() {
+    setNewName('')
+    setNewBranch('')
+    setShowForm(false)
+  }
+
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault()
     if (!newName.trim() || !newBranch.trim()) return
@@ -94,8 +101,7 @@ export default function TeachersPage() {
     try {
       await api.teachers.create(newName.trim(), newBranch.trim())
       toast.success(`${newName.trim()} eklendi.`)
-      setNewName('')
-      setNewBranch('')
+      resetForm()
       load()
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Hata')
@@ -171,29 +177,62 @@ export default function TeachersPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold">Öğretmenler</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold">Öğretmenler</h1>
+        {!showForm && (
+          <Button size="sm" onClick={() => setShowForm(true)}>
+            <Plus className="mr-1 size-3" />
+            Öğretmen Ekle
+          </Button>
+        )}
+      </div>
 
-      {/* Yeni öğretmen formu */}
-      <form onSubmit={handleAdd} className="flex max-w-lg gap-2">
-        <Input
-          placeholder="Öğretmen adı"
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-          disabled={adding}
-          className="flex-1"
-        />
-        <Input
-          placeholder="Branş"
-          value={newBranch}
-          onChange={(e) => setNewBranch(e.target.value)}
-          disabled={adding}
-          className="w-36"
-        />
-        <Button type="submit" disabled={adding || !newName.trim() || !newBranch.trim()}>
-          {adding && <Loader2 className="mr-1 size-3 animate-spin" />}
-          Ekle
-        </Button>
-      </form>
+      {showForm && (
+        <form
+          onSubmit={handleAdd}
+          className="max-w-md space-y-4 rounded-lg border p-4"
+        >
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-medium">Yeni Öğretmen</h2>
+            <Button type="button" variant="ghost" size="icon-sm" onClick={resetForm}>
+              <X />
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="teacher-name">İsim</Label>
+              <Input
+                id="teacher-name"
+                placeholder="Öğretmen adı"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                disabled={adding}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="teacher-branch">Branş</Label>
+              <Input
+                id="teacher-branch"
+                placeholder="Matematik"
+                value={newBranch}
+                onChange={(e) => setNewBranch(e.target.value)}
+                disabled={adding}
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <Button type="submit" disabled={adding || !newName.trim() || !newBranch.trim()}>
+              {adding && <Loader2 className="mr-1 size-3 animate-spin" />}
+              Ekle
+            </Button>
+            <Button type="button" variant="outline" onClick={resetForm}>
+              İptal
+            </Button>
+          </div>
+        </form>
+      )}
 
       {/* Arama */}
       {!loading && teachers.length > 0 && (

@@ -28,6 +28,9 @@ Fu Enerji Case Study — Ders Programı Çizelgeleme Uygulaması
 | Branş-öğretmen senkronu | Bidirectional (ad↔öğretmen) | Ders adı branşı yönlendirir; yanlış öğretmen atamasını önler |
 | Program sınıf seçimi | Select dropdown (Tabs yerine) | Çok sınıfta Tabs taşar; dropdown ölçeklenir |
 | Sınıf sütunu | Tooltip (info ikonu hover) | Tablo satırını şişirmez; gerektiğinde detay görünür |
+| PDF indirme | window.open + window.print() | Yeni paket gerektirmez; tarayıcı native print → PDF |
+| Arama filtreleri | Client-side, anlık | Tüm listelerde tutarlı UX; server round-trip gereksiz |
+| Ekle formu | Collapsible kart (buton sağ üst) | Tüm sayfalarda aynı pattern; boş sayfa temiz görünür |
 
 ---
 
@@ -103,12 +106,12 @@ frontend/
 ```
 
 ### ✅ Adım 6 — UX İyileştirmeleri
-- Öğretmen sayfası: boş saat sayacı (X/Y formatı), isim + branş arama filtresi
+- Tüm sayfalar: ekle butonu sağ üstte, form collapsible kart içinde (tutarlı pattern)
+- Tüm listeler: anlık arama filtresi (isim, branş, sınıf adı, şube, öğretmen adına göre)
+- Öğretmen sayfası: boş saat sayacı (X/Y formatı)
 - Sınıf sayfası: düzenleme dialogu, silme onayı (window.confirm)
-- Dersler sayfası: sınıf sütununda hover tooltip (info ikonu)
-- Dersler sayfası: ders düzenleme — branş-öğretmen bidirectional senkron
-- Dersler sayfası: ClassroomPicker custom dropdown (shadcn Select görünümü)
-- Program sayfası: Tabs → Select dropdown (çok sınıfta taşma önlemi)
+- Dersler sayfası: sınıf sütununda hover tooltip (info ikonu); ders düzenleme; branş-öğretmen bidirectional senkron; ClassroomPicker custom dropdown
+- Program sayfası: Tabs → Select dropdown; tam gün adları (Pazartesi…Cuma); PDF butonu (window.open + window.print)
 
 ---
 

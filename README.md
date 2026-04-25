@@ -114,10 +114,11 @@ npm run dev
 - [x] Frontend — 5 sayfa (Dashboard, Öğretmenler, Sınıflar, Dersler, Program)
 - [x] Availability grid (yeşil/kırmızı/siyah overlay)
 - [x] Öğretmen sayfası: branş, arama/filtre, ayrı düzenleme + müsaitlik butonları, boş saat sayacı (X/Y)
-- [x] Sınıf sayfası: grade + section + öğrenci sayısı, düzenleme dialogu, silme onayı
-- [x] Dersler sayfası: tam CRUD (ekle + düzenle + sil); branş-öğretmen bidirectional sync; ClassroomPicker dropdown
-- [x] Program sayfası: dropdown sınıf seçimi (tab yerine)
+- [x] Sınıf sayfası: grade + section + öğrenci sayısı, düzenleme dialogu, silme onayı, arama filtresi, buton sağ üst
+- [x] Dersler sayfası: tam CRUD (ekle + düzenle + sil); branş-öğretmen bidirectional sync; ClassroomPicker dropdown; arama filtresi (ders adı / öğretmen)
+- [x] Program sayfası: dropdown sınıf seçimi (tab yerine); tam gün adları; PDF indirme (tarayıcı print → PDF)
 - [x] Dashboard: Öğretmen / Sınıf / Ders / Toplam Öğrenci stat kartları
+- [x] Tüm sayfalarda tutarlı UX: ekle butonu sağ üstte, form kart içinde açılır/kapanır, arama çubuğu
 - [x] CORS env var
 - [x] DB migration: idempotent (init_db'de PRAGMA + ALTER TABLE)
 - [ ] Seed data ("Örnek veriyle dene")
