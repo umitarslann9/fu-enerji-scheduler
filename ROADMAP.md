@@ -14,7 +14,8 @@ Fu Enerji Case Study — Ders Programı Çizelgeleme Uygulaması
 | Classroom DELETE | Links temizlenir | FK kısıtı olmasa da referential integrity |
 | PUT /teachers | Partial (PATCH semantics) | `exclude_unset=True`; HTTP verb dokümante edildi |
 | Scheduler | MRV + backtracking | Her kararı savunabiliyorum; OR-Tools kara kutu |
-| Slot sıralama | Day-spread (round-robin) | Soft constraint'i hard olmadan dolaylı tatmin |
+| Slot sıralama | teacher_day_load spread | Soft constraint'i hard olmadan dolaylı tatmin |
+| Blok dağıtım | Split: ≤3=[h], 4=[2,2], 5=[3,2], 6=[3,3] | Ardışık periyot garantisi; aynı günde tekrar yok |
 | Frontend veri çekme | `useClient` + useEffect | External API → Server Components değer üretmiyor |
 | Availability | Dialog (modal) | Sayfa temiz kalır; 5×8 grid inline overkill |
 
@@ -53,12 +54,13 @@ backend/app/
 
 **Scheduler (CSP — `scheduler/solver.py`):**
 ```
-1. Expand   — (subject, classroom) × weekly_hours → SlotNeed listesi
-2. MRV sort — öğretmen availability sayısına göre artan (erken fail)
-3. Backtrack — valid slot yoksa önceki atamaya geri dön
-4. Spread   — daily_count ile sort → dersler haftaya doğal yayılır
+1. Split    — weekly_hours → blok listesi: ≤3h=[h], 4h=[2,2], 5h=[3,2], 6h=[3,3]
+2. Expand   — (subject, classroom) × blok sayısı → BlockNeed listesi
+3. MRV sort — öğretmen availability sayısına göre artan (erken fail)
+4. Backtrack — valid slot yoksa önceki atamaya geri dön
+5. Spread   — teacher_day_load ile sort → bloklar haftaya doğal yayılır
 ```
-- Hard constraints: öğretmen/sınıf çakışması · availability · günde max 3 saat aynı ders
+- Hard constraints: öğretmen/sınıf çakışması · availability · blok içi ardışık periyotlar · aynı (ders,sınıf) aynı günde tekrar yok
 - `ScheduleResult` tablosuna JSON olarak yazılır; `GET /schedule` DB'den okur
 
 ### ✅ Adım 5 — Frontend Sayfaları
@@ -70,13 +72,15 @@ frontend/
 ├── lib/api.ts              Typed fetch client; 404 → null (schedule/latest)
 ├── lib/types.ts            Backend şemalarına 1:1 TS tipleri
 ├── components/
-│   ├── nav.tsx             Sticky top bar; active highlight; sağda CTA
+│   ├── nav.tsx             Sticky top bar; active highlight
 │   └── availability-grid.tsx  5×8 interaktif checkbox matrisi
+│                               (yeşil=müsait, kırmızı=programda dolu, siyah=müsait değil)
 └── app/
     ├── page.tsx            Dashboard: 3 stat kart + son program durumu
-    ├── teachers/page.tsx   Liste + ekle + slot rozeti + müsaitlik dialog
+    ├── teachers/page.tsx   Liste + ekle + müsait slot sayacı + müsaitlik dialog
+    │                       (programlı slotlar overlay olarak görünür, değiştirilemez)
     ├── classrooms/page.tsx Liste + ekle + sil
-    ├── subjects/page.tsx   Liste + ekle (select + checkbox sınıf seçimi)
+    ├── subjects/page.tsx   Liste + ekle (select + checkbox sınıf seçimi; max 6 saat)
     └── schedule/page.tsx   Oluştur + classroom tabs + renkli haftalık grid
 ```
 
@@ -84,10 +88,14 @@ frontend/
 
 ## Kalan Adımlar
 
-### ⬜ Adım 6 — UX İyileştirmeleri (kısmen yapıldı)
+### ✅ Adım 6 — UX İyileştirmeleri
 - [x] Loading state'leri (Loader2 spinner)
 - [x] Error handling + toast (sonner)
 - [x] Renk kodlaması (ders bazlı, inline HSL palette)
+- [x] Availability grid: yeşil/kırmızı/siyah renk kodlaması
+- [x] Öğretmen müsaitlik dialogu: programlı slotlar kırmızı overlay (salt-okunur)
+- [x] Müsait slot sayacı — programlı slotlar düşülmüş net sayı, plain text
+- [x] Navigasyondan "Program Oluştur" CTA butonu kaldırıldı
 - [ ] Seed data butonu ("Örnek veriyle dene") — Dashboard'a eklenecek
 - [ ] İnfeasible schedule daha ayrıntılı debug mesajı (hangi ders atanamadı)
 
@@ -121,7 +129,7 @@ frontend/
 - Öğretmen tercihleri (soft constraint)
 - Yedek öğretmen ataması
 - Takvim export (.ics)
-- Blok dersler (2 saatlik ardışık slot)
+- Seed data endpoint (örnek veri seti)
 
 ---
 

@@ -48,16 +48,17 @@ fu-enerji-scheduler/
 
 ## Scheduler Algoritması (CSP)
 
-Problem: Her `(Subject, Classroom)` çifti için `weekly_hours` adet zaman dilimi ata.
+Problem: Her `(Subject, Classroom)` çifti için `weekly_hours` adet ardışık zaman dilimi bloğu ata.
 
 ```
-1. Expand   — (subject, classroom) × weekly_hours → SlotNeed listesi
-2. MRV sort — öğretmen müsaitlik sayısına göre artan sırala (erken fail)
-3. Backtrack — geçerli slot yoksa bir önceki atamaya geri dön
-4. Spread   — slot sıralamasında günde az atama olanı tercih et (round-robin etkisi)
+1. Split    — weekly_hours → blok listesi: ≤3h=[h], 4h=[2,2], 5h=[3,2], 6h=[3,3]
+2. Expand   — (subject, classroom) × blok sayısı → BlockNeed listesi
+3. MRV sort — öğretmen müsaitlik sayısına göre artan sırala (erken fail)
+4. Backtrack — geçerli slot yoksa bir önceki atamaya geri dön
+5. Spread   — teacher_day_load ile sort → bloklar haftaya doğal yayılır
 ```
 
-Hard constraints: öğretmen çakışması yok · sınıf çakışması yok · availability matrisi · günde max 3 saat aynı ders
+Hard constraints: öğretmen çakışması yok · sınıf çakışması yok · availability matrisi · blok içindeki tüm periyotlar ardışık · aynı (ders, sınıf) bloğu aynı günde tekrar yok
 
 ## Kurulum
 
@@ -97,15 +98,17 @@ npm run dev
 - [x] Veri modelleri (Teacher, Classroom, Subject, ScheduleResult)
 - [x] Database bağlantısı
 - [x] CRUD endpoints (service layer mimarisi)
-- [x] Scheduler algoritması (MRV + backtracking + day-spread)
+- [x] Scheduler algoritması (MRV + backtracking + block-based day-spread)
 - [x] Frontend sayfaları (5 sayfa, toast, loading state'ler)
+- [x] Availability grid: programlı slotlar görsel overlay (kırmızı) + müsait slot sayacı
+- [x] Navigasyondan "Program Oluştur" CTA butonu kaldırıldı
 - [ ] Seed data ("Örnek veriyle dene" butonu)
 - [ ] Deploy (Vercel + Railway)
 - [ ] APPROACH.md (algoritma kararları ve alternatifleri)
 
 ## Kapsam Dışı
 
-Authentication · çoklu kullanıcı · oda/laboratuvar tahsisi · takvim export (.ics) · öğretmen tercihleri (soft constraint)
+Authentication · çoklu kullanıcı · oda/laboratuvar tahsisi · takvim export (.ics) · öğretmen tercihleri (soft constraint) · seed data endpoint
 
 ## AI Kullanımı
 

@@ -141,7 +141,7 @@ export default function SubjectsPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {Array.from({ length: 10 }, (_, i) => i + 1).map((h) => (
+                {Array.from({ length: 6 }, (_, i) => i + 1).map((h) => (
                   <SelectItem key={h} value={String(h)}>
                     {h} saat
                   </SelectItem>

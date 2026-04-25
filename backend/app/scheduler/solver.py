@@ -1,20 +1,21 @@
 """
-Greedy + Backtracking scheduler.
+Block-based Backtracking Scheduler.
 
 Problem: CSP (Constraint Satisfaction Problem)
-  Variables : her atanacak ders saati (SlotNeed)
-  Domain    : 5x8 = 40 zaman dilimi (gün × period)
-  Constraints (hard):
+  Variables  : her (subject, classroom) çifti için bir veya iki BlockNeed
+  Domain     : (gün, başlangıç_period) çiftleri — blok sığabilecek tüm pozisyonlar
+  Hard constraints:
     - Öğretmen aynı anda tek yerde olabilir
     - Sınıf aynı anda tek ders alabilir
-    - Öğretmen o slotta müsait olmalı
-    - Aynı ders aynı sınıfta günde max 3 saat (MAX_DAILY)
+    - Öğretmen o slotta müsait olmalı (availability matrix)
+    - Aynı ders, aynı sınıfta aynı günde yalnızca bir blok (farklı günler)
+    - Blok içindeki ders saatleri ard arda (consecutive periods)
 
-Algoritma:
-  1. Tüm (subject, classroom) çiftlerini weekly_hours kadar SlotNeed'e aç
-  2. MRV heuristic ile sırala: en az müsait slota sahip öğretmenin dersi önce
-  3. Backtracking: geçerli slot yoksa bir önceki atamaya geri dön
-  4. Slot sıralama: günde zaten atama sayısına göre → haftaya yay (round-robin etkisi)
+Haftalık saat → günlük blok dağılımı:
+  ≤3 saat → [N]        tek blok, N ard arda
+  4 saat  → [2, 2]     iki gün, 2+2
+  5 saat  → [3, 2]     iki gün, 3+2
+  6 saat  → [3, 3]     iki gün, 3+3
 """
 
 from dataclasses import dataclass
@@ -24,19 +25,39 @@ from app.models.schemas import Classroom, Lesson, Schedule, Subject, Teacher, pa
 
 DAYS = 5
 PERIODS = 8
-MAX_DAILY = 3  # aynı dersten aynı sınıfta günde maksimum saat
 
 
 @dataclass
-class SlotNeed:
-    """Tek bir atanması gereken ders saati."""
+class BlockNeed:
+    """Tek bir güne atanacak ardışık ders bloğu."""
     subject_id: int
     subject_name: str
     teacher_id: int
     teacher_name: str
     classroom_id: int
     classroom_name: str
-    availability: list[list[bool]]  # 5x8 teacher availability
+    availability: list[list[bool]]  # 5×8 teacher availability
+    hours: int                       # bu blokta kaç ardışık ders
+
+
+def _split_into_blocks(weekly_hours: int) -> list[int]:
+    """Haftalık saati günlük ardışık bloklara böl."""
+    if weekly_hours <= 3:
+        return [weekly_hours]
+    elif weekly_hours == 4:
+        return [2, 2]
+    elif weekly_hours == 5:
+        return [3, 2]
+    elif weekly_hours == 6:
+        return [3, 3]
+    else:
+        # 6 üzeri: 3'erli bloklar, kalan ≤3 ise son blok
+        blocks, remaining = [], weekly_hours
+        while remaining > 0:
+            block = min(3, remaining)
+            blocks.append(block)
+            remaining -= block
+        return blocks
 
 
 def generate_schedule(
@@ -46,16 +67,16 @@ def generate_schedule(
 ) -> Schedule:
     teacher_map = {t.id: t for t in teachers}
 
-    # --- 1. Expand: her (subject, classroom) için weekly_hours adet SlotNeed ---
-    needs: list[SlotNeed] = []
+    # --- 1. Expand: her (subject, classroom) için blok listesi oluştur ---
+    needs: list[BlockNeed] = []
     for subject in subjects:
         teacher = teacher_map.get(subject.teacher_id)
         if not teacher:
             continue
         avail = parse_availability(teacher.availability)
         for classroom in subject.classrooms:
-            for _ in range(subject.weekly_hours):
-                needs.append(SlotNeed(
+            for hours in _split_into_blocks(subject.weekly_hours):
+                needs.append(BlockNeed(
                     subject_id=subject.id,
                     subject_name=subject.name,
                     teacher_id=teacher.id,
@@ -63,46 +84,47 @@ def generate_schedule(
                     classroom_id=classroom.id,
                     classroom_name=classroom.name,
                     availability=avail,
+                    hours=hours,
                 ))
 
-    # --- 2. MRV sort: müsait slot sayısı az olan önce ---
-    # Erken fail → daha az backtracking
-    def available_count(need: SlotNeed) -> int:
+    # --- 2. MRV sort: geçerli (gün, başlangıç) sayısı az olan blok önce ---
+    # Sadece öğretmen availability'sine bakılır; çakışma dikkate alınmaz (statik sıralama)
+    def available_block_count(need: BlockNeed) -> int:
         return sum(
-            need.availability[d][p]
+            1
             for d in range(DAYS)
-            for p in range(PERIODS)
+            for p in range(PERIODS - need.hours + 1)
+            if all(need.availability[d][p + offset] for offset in range(need.hours))
         )
-    needs.sort(key=available_count)
+    needs.sort(key=available_block_count)
 
     # --- 3. Backtracking state ---
     teacher_busy: dict[int, set[tuple[int, int]]] = {t.id: set() for t in teachers}
     classroom_busy: dict[int, set[tuple[int, int]]] = {c.id: set() for c in classrooms}
-    # (subject_id, classroom_id, day) → atama sayısı
-    daily_count: dict[tuple[int, int, int], int] = {}
-    assigned: list[tuple[int, int]] = []  # her need için seçilen (day, period)
+    # (subject_id, classroom_id) → bu güne kadar kullanılan günler
+    used_days: dict[tuple[int, int], set[int]] = {}
+    assigned: list[tuple[int, int]] = []  # her blok için (gün, başlangıç_period)
 
-    def get_valid_slots(need: SlotNeed) -> list[tuple[int, int]]:
+    def get_valid_slots(need: BlockNeed) -> list[tuple[int, int]]:
+        blocked = used_days.get((need.subject_id, need.classroom_id), set())
         valid = []
         for d in range(DAYS):
-            for p in range(PERIODS):
-                if not need.availability[d][p]:
-                    continue
-                if (d, p) in teacher_busy[need.teacher_id]:
-                    continue
-                if (d, p) in classroom_busy[need.classroom_id]:
-                    continue
-                if daily_count.get((need.subject_id, need.classroom_id, d), 0) >= MAX_DAILY:
-                    continue
-                valid.append((d, p))
+            if d in blocked:
+                continue
+            for p in range(PERIODS - need.hours + 1):
+                if all(
+                    need.availability[d][p + off]
+                    and (d, p + off) not in teacher_busy[need.teacher_id]
+                    and (d, p + off) not in classroom_busy[need.classroom_id]
+                    for off in range(need.hours)
+                ):
+                    valid.append((d, p))
 
-        # Round-robin spread: günde zaten az atama olanı tercih et
-        # → dersler haftaya doğal olarak yayılır
-        valid.sort(key=lambda s: (
-            daily_count.get((need.subject_id, need.classroom_id, s[0]), 0),
-            s[0],   # day
-            s[1],   # period
-        ))
+        # Öğretmenin o günkü yüküne göre sırala → haftaya yay
+        def teacher_day_load(day: int) -> int:
+            return sum(1 for h in range(PERIODS) if (day, h) in teacher_busy[need.teacher_id])
+
+        valid.sort(key=lambda s: (teacher_day_load(s[0]), s[0], s[1]))
         return valid
 
     def backtrack(index: int) -> bool:
@@ -111,20 +133,22 @@ def generate_schedule(
 
         need = needs[index]
         for (d, p) in get_valid_slots(need):
-            # Place
-            teacher_busy[need.teacher_id].add((d, p))
-            classroom_busy[need.classroom_id].add((d, p))
-            key = (need.subject_id, need.classroom_id, d)
-            daily_count[key] = daily_count.get(key, 0) + 1
+            # Place: bloktaki tüm periodları işaretle
+            for off in range(need.hours):
+                teacher_busy[need.teacher_id].add((d, p + off))
+                classroom_busy[need.classroom_id].add((d, p + off))
+            key = (need.subject_id, need.classroom_id)
+            used_days.setdefault(key, set()).add(d)
             assigned.append((d, p))
 
             if backtrack(index + 1):
                 return True
 
             # Undo
-            teacher_busy[need.teacher_id].discard((d, p))
-            classroom_busy[need.classroom_id].discard((d, p))
-            daily_count[key] -= 1
+            for off in range(need.hours):
+                teacher_busy[need.teacher_id].discard((d, p + off))
+                classroom_busy[need.classroom_id].discard((d, p + off))
+            used_days[key].discard(d)
             assigned.pop()
 
         return False
@@ -134,16 +158,17 @@ def generate_schedule(
     lessons = []
     if is_feasible:
         for need, (d, p) in zip(needs, assigned):
-            lessons.append(Lesson(
-                subject_id=need.subject_id,
-                subject_name=need.subject_name,
-                teacher_id=need.teacher_id,
-                teacher_name=need.teacher_name,
-                classroom_id=need.classroom_id,
-                classroom_name=need.classroom_name,
-                day=d,
-                period=p,
-            ))
+            for off in range(need.hours):
+                lessons.append(Lesson(
+                    subject_id=need.subject_id,
+                    subject_name=need.subject_name,
+                    teacher_id=need.teacher_id,
+                    teacher_name=need.teacher_name,
+                    classroom_id=need.classroom_id,
+                    classroom_name=need.classroom_name,
+                    day=d,
+                    period=p + off,
+                ))
 
     return Schedule(
         lessons=lessons,

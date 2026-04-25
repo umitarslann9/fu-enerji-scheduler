@@ -21,36 +21,33 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { api } from '@/lib/api'
-import type { Teacher } from '@/lib/types'
+import type { Schedule, Teacher } from '@/lib/types'
 import { Grid3X3, Loader2, Trash2 } from 'lucide-react'
 
-function slotCount(availability: string): number {
+function freeSlotCount(availability: string, scheduledSlots: Set<string>): number {
   try {
-    return (JSON.parse(availability) as boolean[][]).flat().filter(Boolean).length
+    const avail = JSON.parse(availability) as boolean[][]
+    return avail.flat().filter((v, i) => {
+      const day = Math.floor(i / 8)
+      const period = i % 8
+      return v && !scheduledSlots.has(`${day},${period}`)
+    }).length
   } catch {
     return 0
   }
 }
 
 function SlotBadge({ count }: { count: number }) {
-  const color =
-    count < 20
-      ? { bg: '#fee2e2', text: '#991b1b' }
-      : count < 32
-        ? { bg: '#fef9c3', text: '#854d0e' }
-        : { bg: '#dcfce7', text: '#166534' }
   return (
-    <span
-      className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
-      style={{ backgroundColor: color.bg, color: color.text }}
-    >
-      {count}/40 slot
+    <span className="tabular-nums text-sm font-medium text-foreground">
+      {count}
     </span>
   )
 }
 
 export default function TeachersPage() {
   const [teachers, setTeachers] = useState<Teacher[]>([])
+  const [schedule, setSchedule] = useState<Schedule | null>(null)
   const [loading, setLoading] = useState(true)
   const [newName, setNewName] = useState('')
   const [adding, setAdding] = useState(false)
@@ -60,11 +57,22 @@ export default function TeachersPage() {
   const [saving, setSaving] = useState(false)
 
   function load() {
-    api.teachers
-      .list()
-      .then(setTeachers)
+    Promise.all([api.teachers.list(), api.schedule.latest()])
+      .then(([tchs, sched]) => {
+        setTeachers(tchs)
+        setSchedule(sched)
+      })
       .catch((err: unknown) => toast.error(err instanceof Error ? err.message : 'Hata'))
       .finally(() => setLoading(false))
+  }
+
+  function scheduledSlotsFor(teacherId: number): Set<string> {
+    if (!schedule?.lessons) return new Set()
+    return new Set(
+      schedule.lessons
+        .filter((l) => l.teacher_id === teacherId)
+        .map((l) => `${l.day},${l.period}`)
+    )
   }
 
   useEffect(() => {
@@ -154,7 +162,7 @@ export default function TeachersPage() {
               <TableRow key={t.id}>
                 <TableCell className="font-medium">{t.name}</TableCell>
                 <TableCell>
-                  <SlotBadge count={slotCount(t.availability)} />
+                  <SlotBadge count={freeSlotCount(t.availability, scheduledSlotsFor(t.id))} />
                 </TableCell>
                 <TableCell>
                   <div className="flex justify-end gap-1">
@@ -187,7 +195,11 @@ export default function TeachersPage() {
           <DialogHeader>
             <DialogTitle>{editTeacher?.name} — Müsaitlik</DialogTitle>
           </DialogHeader>
-          <AvailabilityGrid value={editAvail} onChange={setEditAvail} />
+          <AvailabilityGrid
+            value={editAvail}
+            onChange={setEditAvail}
+            scheduledSlots={editTeacher ? scheduledSlotsFor(editTeacher.id) : undefined}
+          />
           <DialogFooter>
             <Button onClick={handleSaveAvailability} disabled={saving}>
               {saving && <Loader2 className="mr-1 size-3 animate-spin" />}

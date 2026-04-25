@@ -109,7 +109,7 @@ class ClassroomRead(ClassroomBase):
 
 class SubjectBase(SQLModel):
     name: str = Field(min_length=1, max_length=100)
-    weekly_hours: int = Field(ge=1, le=10)  # haftada 1-10 saat
+    weekly_hours: int = Field(ge=1, le=6)   # haftada 1-6 saat
     teacher_id: int = Field(foreign_key="teacher.id")
 
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { api } from '@/lib/api'
 import type { Schedule } from '@/lib/types'
@@ -26,6 +27,7 @@ export default function DashboardPage() {
         })
         setSchedule(sched)
       })
+      .catch((err: unknown) => toast.error(err instanceof Error ? err.message : 'Hata'))
       .finally(() => setLoading(false))
   }, [])
 

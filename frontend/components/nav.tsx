@@ -1,8 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
-import { Button } from '@/components/ui/button'
+import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 
 const LINKS = [
@@ -15,11 +14,10 @@ const LINKS = [
 
 export function Nav() {
   const pathname = usePathname()
-  const router = useRouter()
 
   return (
     <header className="sticky top-0 z-10 border-b bg-background">
-      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
+      <div className="mx-auto flex h-14 max-w-7xl items-center px-4">
         <div className="flex items-center gap-6">
           <span className="text-sm font-semibold tracking-tight">Fu Enerji Scheduler</span>
           <nav className="flex items-center gap-0.5">
@@ -39,9 +37,6 @@ export function Nav() {
             ))}
           </nav>
         </div>
-        <Button size="sm" onClick={() => router.push('/schedule')}>
-          Program Oluştur
-        </Button>
       </div>
     </header>
   )

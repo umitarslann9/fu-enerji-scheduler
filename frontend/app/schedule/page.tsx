@@ -21,8 +21,11 @@ const PALETTE = [
   { bg: 'hsl(0 70% 92%)', border: 'hsl(0 65% 68%)' },
 ]
 
-function subjectColor(subjectId: number) {
-  return PALETTE[subjectId % PALETTE.length]
+function buildColorMap(lessons: Lesson[]): Map<number, typeof PALETTE[0]> {
+  const ids = [...new Set(lessons.map((l) => l.subject_id))]
+  const map = new Map<number, typeof PALETTE[0]>()
+  ids.forEach((id, i) => map.set(id, PALETTE[i % PALETTE.length]))
+  return map
 }
 
 type Grid = (Lesson | null)[][]
@@ -80,6 +83,7 @@ export default function SchedulePage() {
   const scheduledClassrooms = classrooms.filter((c) =>
     scheduledClassroomIds.includes(c.id)
   )
+  const colorMap = schedule ? buildColorMap(schedule.lessons) : new Map<number, typeof PALETTE[0]>()
 
   return (
     <div className="space-y-6">
@@ -166,7 +170,7 @@ export default function SchedulePage() {
                           </td>
                           {Array.from({ length: 5 }, (_, day) => {
                             const lesson = grid[period][day]
-                            const color = lesson ? subjectColor(lesson.subject_id) : null
+                            const color = lesson ? colorMap.get(lesson.subject_id) ?? null : null
                             return (
                               <td
                                 key={day}

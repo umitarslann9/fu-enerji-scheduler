@@ -8,6 +8,7 @@ from app.models.schemas import (
     Subject,
     SubjectCreate,
     SubjectRead,
+    Teacher,
 )
 
 
@@ -35,6 +36,9 @@ def get_one(session: Session, subject_id: int) -> SubjectRead:
 
 
 def create(session: Session, data: SubjectCreate) -> SubjectRead:
+    if not session.get(Teacher, data.teacher_id):
+        raise HTTPException(status_code=404, detail="Teacher not found")
+
     # classroom_ids'deki her sınıfın var olduğunu doğrula
     classrooms = []
     for cid in data.classroom_ids:
