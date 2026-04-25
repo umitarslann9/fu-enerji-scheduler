@@ -40,6 +40,12 @@ export const api = {
       teacher_id: number
       classroom_ids: number[]
     }) => request<Subject>('/subjects', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: number, data: {
+      name?: string
+      weekly_hours?: number
+      teacher_id?: number
+      classroom_ids?: number[]
+    }) => request<Subject>(`/subjects/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id: number) => request<void>(`/subjects/${id}`, { method: 'DELETE' }),
   },
   schedule: {

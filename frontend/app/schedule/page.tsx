@@ -3,7 +3,13 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { api } from '@/lib/api'
 import type { Classroom, Lesson, Schedule } from '@/lib/types'
 import { Loader2, RefreshCw } from 'lucide-react'
@@ -45,12 +51,14 @@ export default function SchedulePage() {
   const [classrooms, setClassrooms] = useState<Classroom[]>([])
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
+  const [activeClassroomId, setActiveClassroomId] = useState<string>('')
 
   function load() {
     Promise.all([api.schedule.latest(), api.classrooms.list()])
       .then(([sched, clss]) => {
         setSchedule(sched)
         setClassrooms(clss)
+        setActiveClassroomId('')
       })
       .catch((err: unknown) => toast.error(err instanceof Error ? err.message : 'Hata'))
       .finally(() => setLoading(false))
@@ -65,6 +73,7 @@ export default function SchedulePage() {
     try {
       const sched = await api.schedule.generate()
       setSchedule(sched)
+      setActiveClassroomId('')
       if (sched.is_feasible) {
         toast.success(`Program oluşturuldu — ${sched.lessons.length} ders saati atandı.`)
       } else {
@@ -84,6 +93,7 @@ export default function SchedulePage() {
     scheduledClassroomIds.includes(c.id)
   )
   const colorMap = schedule ? buildColorMap(schedule.lessons) : new Map<number, typeof PALETTE[0]>()
+  const effectiveId = activeClassroomId || (scheduledClassrooms[0] ? String(scheduledClassrooms[0].id) : '')
 
   return (
     <div className="space-y-6">
@@ -134,81 +144,89 @@ export default function SchedulePage() {
           Program oluşturuldu ama gösterilecek sınıf yok.
         </p>
       ) : (
-        <Tabs defaultValue={String(scheduledClassrooms[0].id)}>
-          <TabsList>
-            {scheduledClassrooms.map((c) => (
-              <TabsTrigger key={c.id} value={String(c.id)}>
-                {c.name}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-muted-foreground">Sınıf:</span>
+            <Select value={effectiveId} onValueChange={setActiveClassroomId}>
+              <SelectTrigger className="w-36">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {scheduledClassrooms.map((c) => (
+                  <SelectItem key={c.id} value={String(c.id)}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-          {scheduledClassrooms.map((c) => {
-            const grid = buildGrid(schedule.lessons, c.id)
+          {(() => {
+            const classroom = scheduledClassrooms.find((c) => String(c.id) === effectiveId)
+            if (!classroom) return null
+            const grid = buildGrid(schedule.lessons, classroom.id)
             return (
-              <TabsContent key={c.id} value={String(c.id)}>
-                <div className="overflow-x-auto rounded-lg border">
-                  <table className="w-full border-collapse text-sm">
-                    <thead>
-                      <tr>
-                        <th className="w-10 border-b border-r bg-muted p-2 text-center text-xs font-medium text-muted-foreground" />
-                        {DAYS.map((d) => (
-                          <th
-                            key={d}
-                            className="border-b border-r bg-muted p-2 text-center text-xs font-medium last:border-r-0"
-                          >
-                            {d}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {Array.from({ length: 8 }, (_, period) => (
-                        <tr key={period} className="border-b last:border-b-0">
-                          <td className="border-r bg-muted p-2 text-center text-xs font-medium text-muted-foreground">
-                            {period + 1}
-                          </td>
-                          {Array.from({ length: 5 }, (_, day) => {
-                            const lesson = grid[period][day]
-                            const color = lesson ? colorMap.get(lesson.subject_id) ?? null : null
-                            return (
-                              <td
-                                key={day}
-                                className="border-r p-1 align-top last:border-r-0"
-                                style={{
-                                  backgroundColor: color?.bg ?? undefined,
-                                  minWidth: 90,
-                                  height: 56,
-                                }}
-                              >
-                                {lesson && (
-                                  <div
-                                    className="h-full rounded px-1.5 py-1 text-xs"
-                                    style={{
-                                      border: `1px solid ${color!.border}`,
-                                      backgroundColor: color!.bg,
-                                    }}
-                                  >
-                                    <p className="font-medium leading-tight">
-                                      {lesson.subject_name}
-                                    </p>
-                                    <p className="mt-0.5 leading-tight text-muted-foreground" style={{ fontSize: 10 }}>
-                                      {lesson.teacher_name}
-                                    </p>
-                                  </div>
-                                )}
-                              </td>
-                            )
-                          })}
-                        </tr>
+              <div className="overflow-x-auto rounded-lg border">
+                <table className="w-full border-collapse text-sm">
+                  <thead>
+                    <tr>
+                      <th className="w-10 border-b border-r bg-muted p-2 text-center text-xs font-medium text-muted-foreground" />
+                      {DAYS.map((d) => (
+                        <th
+                          key={d}
+                          className="border-b border-r bg-muted p-2 text-center text-xs font-medium last:border-r-0"
+                        >
+                          {d}
+                        </th>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
-              </TabsContent>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Array.from({ length: 8 }, (_, period) => (
+                      <tr key={period} className="border-b last:border-b-0">
+                        <td className="border-r bg-muted p-2 text-center text-xs font-medium text-muted-foreground">
+                          {period + 1}
+                        </td>
+                        {Array.from({ length: 5 }, (_, day) => {
+                          const lesson = grid[period][day]
+                          const color = lesson ? colorMap.get(lesson.subject_id) ?? null : null
+                          return (
+                            <td
+                              key={day}
+                              className="border-r p-1 align-top last:border-r-0"
+                              style={{
+                                backgroundColor: color?.bg ?? undefined,
+                                minWidth: 90,
+                                height: 56,
+                              }}
+                            >
+                              {lesson && (
+                                <div
+                                  className="h-full rounded px-1.5 py-1 text-xs"
+                                  style={{
+                                    border: `1px solid ${color!.border}`,
+                                    backgroundColor: color!.bg,
+                                  }}
+                                >
+                                  <p className="font-medium leading-tight">
+                                    {lesson.subject_name}
+                                  </p>
+                                  <p className="mt-0.5 leading-tight text-muted-foreground" style={{ fontSize: 10 }}>
+                                    {lesson.teacher_name}
+                                  </p>
+                                </div>
+                              )}
+                            </td>
+                          )
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )
-          })}
-        </Tabs>
+          })()}
+        </div>
       )}
     </div>
   )

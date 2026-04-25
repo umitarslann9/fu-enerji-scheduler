@@ -20,8 +20,8 @@ fu-enerji-scheduler/
 │   │   ├── page.tsx           # Dashboard (stat kartlar + son program)
 │   │   ├── teachers/          # Öğretmen CRUD + branş + müsaitlik matrisi
 │   │   ├── classrooms/        # Sınıf CRUD (sınıf + şube + öğrenci sayısı)
-│   │   ├── subjects/          # Ders CRUD (branştan otomatik doldurma)
-│   │   └── schedule/          # Program oluştur + sınıf sekmeli haftalık grid
+│   │   ├── subjects/          # Ders CRUD + düzenleme (branş-öğretmen sync)
+│   │   └── schedule/          # Program oluştur + dropdown sınıf seçimi + haftalık grid
 │   ├── components/
 │   │   ├── nav.tsx            # Üst navigasyon
 │   │   └── availability-grid.tsx  # 5×8 interaktif matris (yeşil/kırmızı/siyah)
@@ -53,6 +53,10 @@ fu-enerji-scheduler/
 |---|---|
 | Öğretmen branşı değişir | İlgili `Subject.name` kayıtları + son `ScheduleResult.lessons_json` |
 | Sınıf grade/section değişir | `Classroom.name` yeniden türetilir + son `ScheduleResult.lessons_json` |
+| Ders adı değişir | Son `ScheduleResult.lessons_json` içindeki `subject_name` güncellenir |
+| Dersin öğretmeni değişir | Son `ScheduleResult.lessons_json` içindeki `teacher_id` + `teacher_name` güncellenir |
+| Dersten sınıf çıkarılır | O sınıfa ait dersler son `ScheduleResult.lessons_json`'dan silinir |
+| Dersin haftalık saati değişir | Son `ScheduleResult.is_feasible = False` yapılır, yeniden oluşturma gerekir |
 
 ## Scheduler Algoritması (CSP)
 
@@ -73,20 +77,19 @@ Hard constraints: öğretmen çakışması yok · sınıf çakışması yok · a
 ### Backend
 ```bash
 cd backend
-cp .env.example .env   # gerekirse ALLOWED_ORIGINS düzenle
 uv sync
-uv run uvicorn app.main:app --reload --port 8000
+uv run python main.py
 ```
 
 ### Frontend
 ```bash
 cd frontend
-cp .env.example .env.local   # gerekirse NEXT_PUBLIC_API_URL düzenle
 npm install
 npm run dev
 ```
 
-`NEXT_PUBLIC_API_URL` tanımlanmazsa varsayılan `http://localhost:8000`.
+`NEXT_PUBLIC_API_URL` tanımlanmazsa varsayılan `http://localhost:8000`.  
+`ALLOWED_ORIGINS` tanımlanmazsa varsayılan `http://localhost:3000`.
 
 ## API Özeti
 
@@ -97,7 +100,7 @@ npm run dev
 | GET / POST | `/classrooms` | Liste / ekle (grade + section + student_count) |
 | GET / PUT / DELETE | `/classrooms/{id}` | Tek kayıt / güncelle (name cascade) / sil |
 | GET / POST | `/subjects` | Liste / ekle (classroom_ids dahil) |
-| DELETE | `/subjects/{id}` | Sil (linkleri temizler) |
+| GET / PUT / DELETE | `/subjects/{id}` | Tek kayıt / güncelle (tam cascade) / sil |
 | POST | `/schedule/generate` | Solver çalıştır, sonucu DB'ye yaz |
 | GET | `/schedule` | Son üretilen programı döner |
 | GET | `/health` | — |
@@ -106,15 +109,16 @@ npm run dev
 
 - [x] Veri modelleri (Teacher + branch, Classroom + section + student_count, Subject, ScheduleResult)
 - [x] CRUD endpoints + service layer mimarisi
-- [x] Cascade update (branş → subject names + lessons_json; sınıf adı → lessons_json)
+- [x] Cascade update — 6 farklı tetikleyici (branş, sınıf adı, ders adı, öğretmen, sınıf çıkarma, haftalık saat)
 - [x] Scheduler algoritması (MRV + backtracking + block-based)
 - [x] Frontend — 5 sayfa (Dashboard, Öğretmenler, Sınıflar, Dersler, Program)
 - [x] Availability grid (yeşil/kırmızı/siyah overlay)
-- [x] Öğretmen sayfası: branş, arama/filtre, ayrı düzenleme + müsaitlik butonları
-- [x] Sınıf sayfası: grade + section + öğrenci sayısı, düzenleme dialogu
-- [x] Dersler sayfası: öğretmen seçilince ders adı branştan otomatik dolar
+- [x] Öğretmen sayfası: branş, arama/filtre, ayrı düzenleme + müsaitlik butonları, boş saat sayacı (X/Y)
+- [x] Sınıf sayfası: grade + section + öğrenci sayısı, düzenleme dialogu, silme onayı
+- [x] Dersler sayfası: tam CRUD (ekle + düzenle + sil); branş-öğretmen bidirectional sync; ClassroomPicker dropdown
+- [x] Program sayfası: dropdown sınıf seçimi (tab yerine)
 - [x] Dashboard: Öğretmen / Sınıf / Ders / Toplam Öğrenci stat kartları
-- [x] CORS env var + .env.example dosyaları
+- [x] CORS env var
 - [x] DB migration: idempotent (init_db'de PRAGMA + ALTER TABLE)
 - [ ] Seed data ("Örnek veriyle dene")
 - [ ] Deploy (Vercel + Railway)
@@ -122,7 +126,7 @@ npm run dev
 
 ## Kapsam Dışı
 
-Authentication · çoklu kullanıcı · oda/laboratuvar tahsisi · takvim export (.ics) · öğretmen tercihleri (soft constraint) · yedek öğretmen · seed data endpoint
+Authentication · çoklu kullanıcı · oda/laboratuvar tahsisi · takvim export (.ics) · öğretmen tercihleri (soft constraint) · yedek öğretmen
 
 ## AI Kullanımı
 

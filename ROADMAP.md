@@ -23,6 +23,11 @@ Fu Enerji Case Study — Ders Programı Çizelgeleme Uygulaması
 | Cascade güncelleme | Service layer, tek transaction | Branch değişince Subject.name + lessons_json güncellenir; sınıf adı değişince lessons_json güncellenir |
 | DB migration | Idempotent (PRAGMA table_info + ALTER TABLE) | Hem taze kurulum hem mevcut DB'yi destekler |
 | CORS | ALLOWED_ORIGINS env var | Farklı ortamlar için hardcode değil |
+| Subject PUT cascade | 6 tetikleyici, tek flush+commit | Ad/öğretmen/sınıf/saat değişikliği → lessons_json tek atomik güncelleme |
+| Multi-select dropdown | useRef + pointerdown (custom) | Yeni paket gerektirmez; shadcn Select görünümüne uyumlu |
+| Branş-öğretmen senkronu | Bidirectional (ad↔öğretmen) | Ders adı branşı yönlendirir; yanlış öğretmen atamasını önler |
+| Program sınıf seçimi | Select dropdown (Tabs yerine) | Çok sınıfta Tabs taşar; dropdown ölçeklenir |
+| Sınıf sütunu | Tooltip (info ikonu hover) | Tablo satırını şişirmez; gerektiğinde detay görünür |
 
 ---
 
@@ -48,12 +53,12 @@ backend/app/
 ├── services/
 │   ├── teacher_service.py    get_all, get_one, create, update (branch cascade), delete (409 if subjects)
 │   ├── classroom_service.py  get_all, get_one, create, update (name cascade), delete (links temizlenir)
-│   ├── subject_service.py    get_all, get_one, create, delete (links temizlenir)
+│   ├── subject_service.py    get_all, get_one, create, update (6 cascade), delete (links temizlenir)
 │   └── schedule_service.py   run_generate, get_latest
 └── routers/
     ├── teachers.py   GET/POST/GET{id}/PUT{id}/DELETE{id}
     ├── classrooms.py GET/POST/GET{id}/PUT{id}/DELETE{id}
-    ├── subjects.py   GET/POST/GET{id}/DELETE{id}
+    ├── subjects.py   GET/POST/GET{id}/PUT{id}/DELETE{id}
     └── schedule.py   POST /generate, GET /
 ```
 
@@ -71,7 +76,11 @@ backend/app/
 ### ✅ Adım 4 — Cascade Güncelleme
 - Öğretmen branşı değişince → ilgili `Subject.name` kayıtları + son `ScheduleResult.lessons_json` güncellenir
 - Sınıf grade/section değişince → `Classroom.name` yeniden türetilir + son `ScheduleResult.lessons_json` güncellenir
-- Her iki cascade tek transaction içinde (session.flush + commit)
+- Ders adı değişince → `lessons_json` içindeki `subject_name` güncellenir
+- Dersin öğretmeni değişince → `teacher_id` + `teacher_name` güncellenir
+- Dersten sınıf çıkarılınca → o sınıfa ait ders satırları `lessons_json`'dan silinir
+- Haftalık saat değişince → `is_feasible = False`, yeniden oluşturma uyarısı
+- Tüm cascade'ler tek transaction içinde (session.flush + commit)
 
 ### ✅ Adım 5 — Frontend Sayfaları
 **Stack:** Next.js 16 + React 19 + Tailwind 4 + shadcn/ui  
@@ -87,28 +96,36 @@ frontend/
 │                               (yeşil=müsait, kırmızı=programda dolu, siyah=müsait değil)
 └── app/
     ├── page.tsx            Dashboard: 4 stat kart (öğretmen/sınıf/ders/toplam öğrenci) + son program
-    ├── teachers/page.tsx   Liste + arama/filtre (isim/branş) + ekle + ayrı düzenleme/müsaitlik butonları
-    ├── classrooms/page.tsx Liste + ekle + düzenle (grade+section+student_count) + sil
-    ├── subjects/page.tsx   Liste + ekle (öğretmen seçilince ders adı branştan otomatik dolar)
-    └── schedule/page.tsx   Oluştur + classroom tabs + renkli haftalık grid
+    ├── teachers/page.tsx   Liste + arama/filtre (isim/branş) + ekle + düzenle + müsaitlik; boş saat sayacı
+    ├── classrooms/page.tsx Liste + ekle + düzenle (grade+section+student_count) + sil (onaylı)
+    ├── subjects/page.tsx   Liste + ekle + düzenle (full cascade); branş-öğretmen sync; ClassroomPicker
+    └── schedule/page.tsx   Oluştur + Select dropdown sınıf seçimi + renkli haftalık grid
 ```
+
+### ✅ Adım 6 — UX İyileştirmeleri
+- Öğretmen sayfası: boş saat sayacı (X/Y formatı), isim + branş arama filtresi
+- Sınıf sayfası: düzenleme dialogu, silme onayı (window.confirm)
+- Dersler sayfası: sınıf sütununda hover tooltip (info ikonu)
+- Dersler sayfası: ders düzenleme — branş-öğretmen bidirectional senkron
+- Dersler sayfası: ClassroomPicker custom dropdown (shadcn Select görünümü)
+- Program sayfası: Tabs → Select dropdown (çok sınıfta taşma önlemi)
 
 ---
 
 ## Kalan Adımlar
 
-### ⬜ Adım 6 — Seed Data
+### ⬜ Adım 7 — Seed Data
 - [ ] Seed data butonu ("Örnek veriyle dene") — Dashboard'a eklenecek
 - [ ] En az 3 sınıf, 5 öğretmen, 10 ders içeren örnek set
 
-### ⬜ Adım 7 — Hata Detayı
+### ⬜ Adım 8 — Hata Detayı
 - [ ] İnfeasible schedule daha ayrıntılı debug mesajı (hangi ders atanamadı)
 
-### ⬜ Adım 8 — Dokümantasyon
+### ⬜ Adım 9 — Dokümantasyon
 - [ ] `APPROACH.md`: problemi nasıl tanımladım, varsayımlar, kapsam dışı, alternatifler
 - [ ] README polish (canlı linkler eklenecek)
 
-### ⬜ Adım 9 — Deploy
+### ⬜ Adım 10 — Deploy
 - [ ] Frontend → Vercel (`NEXT_PUBLIC_API_URL` env var)
 - [ ] Backend → Railway (`scheduler.db` persist volume veya in-memory karar)
 - [ ] CORS: `ALLOWED_ORIGINS` Railway/Vercel URL'leri ile güncelle
@@ -134,7 +151,6 @@ frontend/
 - Öğretmen tercihleri (soft constraint)
 - Yedek öğretmen ataması
 - Takvim export (.ics)
-- Seed data endpoint (örnek veri seti)
 
 ---
 

@@ -101,6 +101,7 @@ export default function ClassroomsPage() {
   }
 
   async function handleDelete(c: Classroom) {
+    if (!window.confirm(`"${c.name}" sınıfını silmek istediğinizden emin misiniz? Bu sınıfa bağlı ders atamaları da kaldırılır.`)) return
     try {
       await api.classrooms.delete(c.id)
       toast.success(`${c.name} silindi.`)

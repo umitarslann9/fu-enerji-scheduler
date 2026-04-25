@@ -93,7 +93,7 @@ class TeacherUpdate(SQLModel):
     def branch_not_empty(cls, v: Optional[str]) -> Optional[str]:
         if v is not None and not v.strip():
             raise ValueError('Branş boş olamaz')
-        return v
+        return v.strip() if v else v
 
 
 # ============================================================
@@ -163,6 +163,13 @@ class SubjectCreate(SubjectBase):
 class SubjectRead(SubjectBase):
     id: int
     classroom_ids: List[int] = Field(default_factory=list)
+
+
+class SubjectUpdate(SQLModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    weekly_hours: Optional[int] = Field(default=None, ge=1, le=6)
+    teacher_id: Optional[int] = None
+    classroom_ids: Optional[List[int]] = None
 
 
 # ============================================================

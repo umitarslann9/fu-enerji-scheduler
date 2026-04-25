@@ -25,16 +25,22 @@ import { api } from '@/lib/api'
 import type { Schedule, Teacher } from '@/lib/types'
 import { Grid3X3, Loader2, Pencil, Search, Trash2 } from 'lucide-react'
 
-function freeSlotCount(availability: string, scheduledSlots: Set<string>): number {
+function slotCounts(availability: string, scheduledSlots: Set<string>): { free: number; total: number } {
   try {
     const avail = JSON.parse(availability) as boolean[][]
-    return avail.flat().filter((v, i) => {
+    let free = 0
+    let total = 0
+    avail.flat().forEach((v, i) => {
       const day = Math.floor(i / 8)
       const period = i % 8
-      return v && !scheduledSlots.has(`${day},${period}`)
-    }).length
+      if (v) {
+        total++
+        if (!scheduledSlots.has(`${day},${period}`)) free++
+      }
+    })
+    return { free, total }
   } catch {
-    return 0
+    return { free: 0, total: 0 }
   }
 }
 
@@ -219,7 +225,7 @@ export default function TeachersPage() {
             <TableRow>
               <TableHead>İsim</TableHead>
               <TableHead>Branş</TableHead>
-              <TableHead>Müsaitlik</TableHead>
+              <TableHead>Boş Saat</TableHead>
               <TableHead className="w-32" />
             </TableRow>
           </TableHeader>
@@ -229,9 +235,15 @@ export default function TeachersPage() {
                 <TableCell className="font-medium">{t.name}</TableCell>
                 <TableCell className="text-muted-foreground">{t.branch || '—'}</TableCell>
                 <TableCell>
-                  <span className="tabular-nums text-sm font-medium">
-                    {freeSlotCount(t.availability, scheduledSlotsFor(t.id))}
-                  </span>
+                  {(() => {
+                    const { free, total } = slotCounts(t.availability, scheduledSlotsFor(t.id))
+                    return (
+                      <span className="tabular-nums text-sm" title="Müsait ve programlanmamış ders saati sayısı">
+                        <span className="font-medium">{free}</span>
+                        <span className="text-muted-foreground">/{total}</span>
+                      </span>
+                    )
+                  })()}
                 </TableCell>
                 <TableCell>
                   <div className="flex justify-end gap-1">

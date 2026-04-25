@@ -175,8 +175,8 @@ def generate_schedule(
         generated_at=datetime.now(timezone.utc).isoformat(),
         is_feasible=is_feasible,
         message=(
-            "Schedule generated successfully."
+            "Program başarıyla oluşturuldu."
             if is_feasible
-            else "No feasible schedule found — check teacher availability and weekly hours."
+            else "Geçerli program bulunamadı — öğretmen müsaitliklerini ve haftalık saat sayılarını kontrol edin."
         ),
     )
