@@ -15,7 +15,7 @@ Fu Enerji Case Study — Ders Programı Çizelgeleme Uygulaması
 | PUT /teachers | Partial (PATCH semantics) | `exclude_unset=True`; HTTP verb dokümante edildi |
 | Scheduler | MRV + backtracking | Her kararı savunabiliyorum; OR-Tools kara kutu |
 | Slot sıralama | teacher_day_load spread | Soft constraint'i hard olmadan dolaylı tatmin |
-| Blok dağıtım | Split: 1=[1], 2=[2], 3=[3], 4=[2,2], 5=[3,2], 6=[3,3] | Ardışık periyot garantisi; aynı günde tekrar yok |
+| Blok dağıtım | Split: 1=[1], 2=[2], 3=[2,1], 4=[2,2], 5=[2,2,1], 6=[2,2,2] | Max 2'li bloklar; dersler haftaya yayılır, solver'ın arama uzayı küçülür |
 | Frontend veri çekme | `useClient` + useEffect | External API → Server Components değer üretmiyor |
 | Availability | Dialog (modal) | Sayfa temiz kalır; 5×8 grid inline overkill |
 | Teacher branş | Zorunlu alan | Ders adı otomatik türetmek için gerekli |
@@ -53,10 +53,12 @@ Fu Enerji Case Study — Ders Programı Çizelgeleme Uygulaması
 - Hard constraints: öğretmen/sınıf çakışması · availability · blok ardışıklığı · günlük tekrar yok
 
 ### ✅ Adım 4 — Cascade Güncelleme
-- 6 tetikleyici; hepsi tek transaction içinde (session.flush + commit)
+- 7 tetikleyici; hepsi tek transaction içinde (session.flush + commit)
 - Branch değişimi → Subject.name + lessons_json
 - Sınıf adı değişimi → lessons_json
-- Öğretmen/ders/sınıf değişimi → lessons_json
+- Ders adı / sınıf ekleme-çıkarma → lessons_json
+- Dersin öğretmeni değişimi → lessons_json güncelle + is_feasible = False
+- Haftalık saat değişimi / öğretmen izin durumu → is_feasible = False
 
 ### ✅ Adım 5 — Frontend Sayfaları
 - 6 sayfa: Dashboard · Öğretmenler · Sınıflar · Dersler · Programlar · Öğretmen Programları
@@ -87,17 +89,22 @@ Fu Enerji Case Study — Ders Programı Çizelgeleme Uygulaması
 - Hardcoded hex renkler (#16a34a, #dc2626 vb.) kaldırıldı, Tailwind token'larına geçildi
 - Radix Dialog accessibility warning'leri (aria-describedby) düzeltildi
 
+### ✅ Adım 9 — Bug Düzeltme & Scheduler Optimizasyonu
+- Dersin öğretmeni değişince schedule artık `is_feasible = False` işaretleniyor (önceki davranış: sadece teacher_id/name güncelleniyor, feasibility kontrolü yapılmıyordu)
+- `test_models_sanity.py` güncellendi — `section` alanı zorunlu hale gelince test dosyası güncellenmemişti
+- Scheduler blok algoritması optimize edildi: 3=[2,1], 5=[2,2,1], 6=[2,2,2] — max 2'li bloklar, dersler haftaya yayılır, solver'ın backtracking derinliği azalır
+
 ---
 
 ## Kalan Adımlar
 
-### ⬜ Adım 9 — Deploy
+### ⬜ Adım 10 — Deploy
 - [ ] Frontend → Vercel (`NEXT_PUBLIC_API_URL` env var)
 - [ ] Backend → Railway (`scheduler.db` persist volume kararı)
 - [ ] CORS: `ALLOWED_ORIGINS` Railway/Vercel URL'leri ile güncelle
 - [ ] Canlı uçtan uca test
 
-### ⬜ Adım 10 — İyileştirmeler (İsteğe Bağlı)
+### ⬜ Adım 11 — İyileştirmeler (İsteğe Bağlı)
 - [ ] İnfeasible schedule — hangi (ders, sınıf) bloğu atanamadı detayı
 - [ ] Timetable çakışma görsel uyarısı (red ring — solver garantiliyor ama UI göstergesi)
 

@@ -31,8 +31,8 @@ def test_models():
         print(f"✅ Availability matrix: {len(matrix)} gün × {len(matrix[0])} period, hepsi müsait")
 
         # --- 2. Sınıflar oluştur ---
-        class_9a = Classroom(name="9-A", grade=9)
-        class_9b = Classroom(name="9-B", grade=9)
+        class_9a = Classroom(name="9-A", grade=9, section="A")
+        class_9b = Classroom(name="9-B", grade=9, section="B")
         session.add(class_9a)
         session.add(class_9b)
         session.commit()

@@ -63,17 +63,18 @@ fu-enerji-scheduler/
 | Öğretmen branşı değişir | İlgili `Subject.name` kayıtları + son `ScheduleResult.lessons_json` |
 | Sınıf grade/section değişir | `Classroom.name` yeniden türetilir + son `ScheduleResult.lessons_json` |
 | Ders adı değişir | Son `ScheduleResult.lessons_json` içindeki `subject_name` güncellenir |
-| Dersin öğretmeni değişir | Son `ScheduleResult.lessons_json` içindeki `teacher_id` + `teacher_name` güncellenir |
+| Dersin öğretmeni değişir | Son `ScheduleResult.lessons_json` güncellenir + `is_feasible = False` (yeni öğretmen eski slotlarda müsait olmayabilir) |
 | Dersten sınıf çıkarılır | O sınıfa ait dersler son `ScheduleResult.lessons_json`'dan silinir |
 | Dersin haftalık saati değişir | Son `ScheduleResult.is_feasible = False` yapılır, yeniden oluşturma gerekir |
+| Öğretmen izne ayrılır / döner | Son `ScheduleResult.is_feasible = False` yapılır, yeniden oluşturma gerekir |
 
 ## Scheduler Algoritması (CSP)
 
 Problem: Her `(Subject, Classroom)` çifti için `weekly_hours` adet ardışık zaman dilimi bloğu ata.
 
 ```
-1. Split    — weekly_hours → blok listesi (haftalık saat → günlük ardışık parçalar)
-               1h=[1]  2h=[2]  3h=[3]  4h=[2,2]  5h=[3,2]  6h=[3,3]
+1. Split    — weekly_hours → blok listesi (max 2'li bloklar, haftaya yayılır)
+               1h=[1]  2h=[2]  3h=[2,1]  4h=[2,2]  5h=[2,2,1]  6h=[2,2,2]
 2. Expand   — (subject, classroom) × blok sayısı → BlockNeed listesi
 3. MRV sort — öğretmen müsaitlik sayısına göre artan sırala (erken fail)
 4. Backtrack — geçerli slot yoksa bir önceki atamaya geri dön (3M iterasyon limiti)
@@ -135,6 +136,8 @@ npm run dev
 - [x] Dark mode (next-themes) + Inter font + zinc/blue design token'ları
 - [x] Timetable golden-angle renk algoritması (benzersiz renkler garantisi)
 - [x] Öğretmen programı alfabetik sıralama
+- [x] Scheduler blok optimizasyonu (max 2'li bloklar — 3,5,6 saatlik dersler haftaya yayılır)
+- [x] Cascade bug düzeltmesi — dersin öğretmeni değişince schedule geçersiz işaretlenir
 - [ ] Deploy (Vercel + Railway)
 - [ ] İnfeasible schedule — hangi ders atanamadı detayı
 

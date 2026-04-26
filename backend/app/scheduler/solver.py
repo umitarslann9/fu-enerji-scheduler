@@ -11,11 +11,13 @@ Problem: CSP (Constraint Satisfaction Problem)
     - Aynı ders, aynı sınıfta aynı günde yalnızca bir blok (farklı günler)
     - Blok içindeki ders saatleri ard arda (consecutive periods)
 
-Haftalık saat → günlük blok dağılımı:
-  ≤3 saat → [N]        tek blok, N ard arda
-  4 saat  → [2, 2]     iki gün, 2+2
-  5 saat  → [3, 2]     iki gün, 3+2
-  6 saat  → [3, 3]     iki gün, 3+3
+Haftalık saat → günlük blok dağılımı (max 2'li bloklar):
+  1 saat  → [1]          tek blok
+  2 saat  → [2]          tek blok, 2 ard arda
+  3 saat  → [2, 1]       iki gün
+  4 saat  → [2, 2]       iki gün
+  5 saat  → [2, 2, 1]    üç gün
+  6 saat  → [2, 2, 2]    üç gün
 """
 
 from dataclasses import dataclass
@@ -41,20 +43,24 @@ class BlockNeed:
 
 
 def _split_into_blocks(weekly_hours: int) -> list[int]:
-    """Haftalık saati günlük ardışık bloklara böl."""
-    if weekly_hours <= 3:
-        return [weekly_hours]
+    """Haftalık saati günlük ardışık bloklara böl (max 2'li bloklar)."""
+    if weekly_hours == 1:
+        return [1]
+    elif weekly_hours == 2:
+        return [2]
+    elif weekly_hours == 3:
+        return [2, 1]
     elif weekly_hours == 4:
         return [2, 2]
     elif weekly_hours == 5:
-        return [3, 2]
+        return [2, 2, 1]
     elif weekly_hours == 6:
-        return [3, 3]
+        return [2, 2, 2]
     else:
-        # 6 üzeri: 3'erli bloklar, kalan ≤3 ise son blok
+        # 6 üzeri: 2'li bloklar, kalan tek kalırsa 1'li son blok
         blocks, remaining = [], weekly_hours
         while remaining > 0:
-            block = min(3, remaining)
+            block = min(2, remaining)
             blocks.append(block)
             remaining -= block
         return blocks

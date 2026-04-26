@@ -155,6 +155,11 @@ def update(session: Session, subject_id: int, data: SubjectUpdate) -> SubjectRea
                     if lesson.get('subject_id') == subject_id:
                         lesson['teacher_id'] = new_teacher.id
                         lesson['teacher_name'] = new_teacher.name
+                latest.is_feasible = False
+                latest.message = (
+                    "Ders öğretmeni değiştiği için program geçerliliğini yitirdi. "
+                    "Lütfen yeniden oluşturun."
+                )
 
             if removed_classroom_ids:
                 lessons = [
