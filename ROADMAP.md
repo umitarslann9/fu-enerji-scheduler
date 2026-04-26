@@ -15,7 +15,7 @@ Fu Enerji Case Study — Ders Programı Çizelgeleme Uygulaması
 | PUT /teachers | Partial (PATCH semantics) | `exclude_unset=True`; HTTP verb dokümante edildi |
 | Scheduler | MRV + backtracking | Her kararı savunabiliyorum; OR-Tools kara kutu |
 | Slot sıralama | teacher_day_load spread | Soft constraint'i hard olmadan dolaylı tatmin |
-| Blok dağıtım | Split: ≤3=[h], 4=[2,2], 5=[3,2], 6=[3,3] | Ardışık periyot garantisi; aynı günde tekrar yok |
+| Blok dağıtım | Split: 1=[1], 2=[2], 3=[3], 4=[2,2], 5=[3,2], 6=[3,3] | Ardışık periyot garantisi; aynı günde tekrar yok |
 | Frontend veri çekme | `useClient` + useEffect | External API → Server Components değer üretmiyor |
 | Availability | Dialog (modal) | Sayfa temiz kalır; 5×8 grid inline overkill |
 | Teacher branş | Zorunlu alan (TeacherCreate validator) | Ders adı otomatik türetmek için gerekli; mevcut kayıtlar boş geçebilir (ResponseValidationError önlemi) |
@@ -67,10 +67,11 @@ backend/app/
 
 **Scheduler (CSP — `scheduler/solver.py`):**
 ```
-1. Split    — weekly_hours → blok listesi: ≤3h=[h], 4h=[2,2], 5h=[3,2], 6h=[3,3]
+1. Split    — weekly_hours → blok listesi:
+               1=[1]  2=[2]  3=[3]  4=[2,2]  5=[3,2]  6=[3,3]
 2. Expand   — (subject, classroom) × blok sayısı → BlockNeed listesi
 3. MRV sort — öğretmen availability sayısına göre artan (erken fail)
-4. Backtrack — valid slot yoksa önceki atamaya geri dön
+4. Backtrack — valid slot yoksa önceki atamaya geri dön (3M iterasyon limiti)
 5. Spread   — teacher_day_load ile sort → bloklar haftaya doğal yayılır
 ```
 - Hard constraints: öğretmen/sınıf çakışması · availability · blok içi ardışık periyotlar · aynı (ders,sınıf) aynı günde tekrar yok
@@ -117,9 +118,12 @@ frontend/
 
 ## Kalan Adımlar
 
-### ⬜ Adım 7 — Seed Data
-- [ ] Seed data butonu ("Örnek veriyle dene") — Dashboard'a eklenecek
-- [ ] En az 3 sınıf, 5 öğretmen, 10 ders içeren örnek set
+### ✅ Adım 7 — Seed Data & Performans
+- [x] Dashboard "Demo Veri Yükle" butonu — onay dialogu ile, mevcut veriyi sıfırlar
+- [x] 16 sınıf (9-12, 4 şube A-D), 26 öğretmen, 26 ders — ~%82 program doluluk oranı
+- [x] SQLite WAL mode + NORMAL sync + 32 MB page cache (yanıt süresi <300 ms)
+- [x] N+1 sorgu düzeltmesi: subject listing tek sorguya indirgendi, solver selectinload kullanıyor
+- [x] Solver 3M iterasyon limiti (sonsuz döngü koruması)
 
 ### ⬜ Adım 8 — Hata Detayı
 - [ ] İnfeasible schedule daha ayrıntılı debug mesajı (hangi ders atanamadı)
@@ -138,7 +142,7 @@ frontend/
 
 ## Başarı Kriterleri
 
-- [ ] Seed data ile sorunsuz çalışıyor (3 sınıf, 5 öğretmen, 10 ders)
+- [x] Seed data ile sorunsuz çalışıyor (16 sınıf, 26 öğretmen, 26 ders, 528 ders saati)
 - [x] Infeasible durumda anlamlı hata mesajı ("Geçerli program bulunamadı…")
 - [ ] Infeasible durumda hangi ders atanamadı (detay)
 - [x] UI'da çakışma görsel olarak yok (solver garantiler)

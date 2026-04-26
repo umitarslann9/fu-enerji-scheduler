@@ -104,6 +104,8 @@ def generate_schedule(
     # (subject_id, classroom_id) → bu güne kadar kullanılan günler
     used_days: dict[tuple[int, int], set[int]] = {}
     assigned: list[tuple[int, int]] = []  # her blok için (gün, başlangıç_period)
+    call_count = [0]
+    _MAX_CALLS = 3_000_000  # sonsuz döngü koruması
 
     def get_valid_slots(need: BlockNeed) -> list[tuple[int, int]]:
         blocked = used_days.get((need.subject_id, need.classroom_id), set())
@@ -128,6 +130,9 @@ def generate_schedule(
         return valid
 
     def backtrack(index: int) -> bool:
+        call_count[0] += 1
+        if call_count[0] > _MAX_CALLS:
+            return False
         if index == len(needs):
             return True
 

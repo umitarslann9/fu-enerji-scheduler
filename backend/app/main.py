@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.db.database import init_db
-from app.routers import classrooms, schedule, subjects, teachers
+from app.routers import classrooms, schedule, seed, subjects, teachers
 
 
 @asynccontextmanager
@@ -34,6 +34,7 @@ app.include_router(teachers.router)
 app.include_router(classrooms.router)
 app.include_router(subjects.router)
 app.include_router(schedule.router)
+app.include_router(seed.router)
 
 
 @app.get("/health")

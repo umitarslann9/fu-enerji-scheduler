@@ -2,17 +2,29 @@
 
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { api } from '@/lib/api'
 import type { Schedule } from '@/lib/types'
-import { BookOpen, Calendar, GraduationCap, School, Users } from 'lucide-react'
+import { BookOpen, Calendar, Database, GraduationCap, Loader2, School, Users } from 'lucide-react'
 
 export default function DashboardPage() {
   const [counts, setCounts] = useState({ teachers: 0, classrooms: 0, subjects: 0, students: 0 })
   const [schedule, setSchedule] = useState<Schedule | null>(null)
   const [loading, setLoading] = useState(true)
+  const [seedDialogOpen, setSeedDialogOpen] = useState(false)
+  const [seeding, setSeeding] = useState(false)
 
-  useEffect(() => {
+  function load() {
+    setLoading(true)
     Promise.all([
       api.teachers.list(),
       api.classrooms.list(),
@@ -30,7 +42,27 @@ export default function DashboardPage() {
       })
       .catch((err: unknown) => toast.error(err instanceof Error ? err.message : 'Hata'))
       .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    load()
   }, [])
+
+  async function handleSeed() {
+    setSeedDialogOpen(false)
+    setSeeding(true)
+    try {
+      const result = await api.seed.run()
+      toast.success(
+        `Demo veri yüklendi — ${result.classrooms} sınıf, ${result.teachers} öğretmen, ${result.subjects} ders.`
+      )
+      load()
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Seed hatası')
+    } finally {
+      setSeeding(false)
+    }
+  }
 
   const stats = [
     { label: 'Öğretmen', value: counts.teachers, icon: Users },
@@ -41,7 +73,27 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold">Dashboard</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold">Dashboard</h1>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setSeedDialogOpen(true)}
+          disabled={seeding || loading}
+        >
+          {seeding ? (
+            <>
+              <Loader2 className="mr-1.5 size-4 animate-spin" />
+              Yükleniyor…
+            </>
+          ) : (
+            <>
+              <Database className="mr-1.5 size-4" />
+              Demo Veri Yükle
+            </>
+          )}
+        </Button>
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map(({ label, value, icon: Icon }) => (
@@ -93,6 +145,27 @@ export default function DashboardPage() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={seedDialogOpen} onOpenChange={setSeedDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Demo Veri Yükle</DialogTitle>
+            <DialogDescription>
+              Mevcut tüm öğretmen, sınıf, ders ve program kayıtları silinir; yerine 9-12. sınıf
+              4 şube (A-D), 26 öğretmen ve haftada ~33 saatlik ders programı yüklenir.
+              Devam etmek istiyor musunuz?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSeedDialogOpen(false)}>
+              İptal
+            </Button>
+            <Button variant="destructive" onClick={handleSeed}>
+              Evet, Yükle
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

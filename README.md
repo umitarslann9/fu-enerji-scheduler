@@ -63,10 +63,11 @@ fu-enerji-scheduler/
 Problem: Her `(Subject, Classroom)` çifti için `weekly_hours` adet ardışık zaman dilimi bloğu ata.
 
 ```
-1. Split    — weekly_hours → blok listesi: ≤3h=[h], 4h=[2,2], 5h=[3,2], 6h=[3,3]
+1. Split    — weekly_hours → blok listesi (haftalık saat → günlük ardışık parçalar)
+               1h=[1]  2h=[2]  3h=[3]  4h=[2,2]  5h=[3,2]  6h=[3,3]
 2. Expand   — (subject, classroom) × blok sayısı → BlockNeed listesi
 3. MRV sort — öğretmen müsaitlik sayısına göre artan sırala (erken fail)
-4. Backtrack — geçerli slot yoksa bir önceki atamaya geri dön
+4. Backtrack — geçerli slot yoksa bir önceki atamaya geri dön (3M iterasyon limiti)
 5. Spread   — teacher_day_load ile sort → bloklar haftaya doğal yayılır
 ```
 
@@ -103,6 +104,7 @@ npm run dev
 | GET / PUT / DELETE | `/subjects/{id}` | Tek kayıt / güncelle (tam cascade) / sil |
 | POST | `/schedule/generate` | Solver çalıştır, sonucu DB'ye yaz |
 | GET | `/schedule` | Son üretilen programı döner |
+| POST | `/seed` | Demo veriyi yükle (mevcut veriyi sıfırlayıp örnek set ekler) |
 | GET | `/health` | — |
 
 ## Geliştirme Durumu
@@ -121,7 +123,10 @@ npm run dev
 - [x] Tüm sayfalarda tutarlı UX: ekle butonu sağ üstte, form kart içinde açılır/kapanır, arama çubuğu
 - [x] CORS env var
 - [x] DB migration: idempotent (init_db'de PRAGMA + ALTER TABLE)
-- [ ] Seed data ("Örnek veriyle dene")
+- [x] SQLite performans optimizasyonu (WAL mode, NORMAL sync, 32 MB page cache)
+- [x] N+1 sorgu düzeltmesi (subjects lazy-load → tek sorgu; solver selectinload)
+- [x] Seed data — Dashboard "Demo Veri Yükle" butonu; 16 sınıf (9-12, A-D), 26 öğretmen, ~%82 doluluk
+- [x] Solver sonsuz döngü koruması (3M iterasyon limiti)
 - [ ] Deploy (Vercel + Railway)
 - [ ] İnfeasible schedule — hangi ders atanamadı detayı
 

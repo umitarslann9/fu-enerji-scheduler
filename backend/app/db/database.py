@@ -1,5 +1,5 @@
 from pathlib import Path
-from sqlalchemy import text
+from sqlalchemy import event, text
 from sqlmodel import SQLModel, create_engine, Session
 
 # SQLite dosyası backend/ klasöründe oluşacak
@@ -9,9 +9,18 @@ DATABASE_URL = f"sqlite:///{DB_PATH}"
 # check_same_thread=False: FastAPI multi-thread için
 engine = create_engine(
     DATABASE_URL,
-    echo=False,  # True yaparsan tüm SQL sorgularını loglar (debug için)
+    echo=False,
     connect_args={"check_same_thread": False},
 )
+
+
+@event.listens_for(engine, "connect")
+def _set_sqlite_pragmas(dbapi_conn, _):
+    c = dbapi_conn.cursor()
+    c.execute("PRAGMA journal_mode=WAL")   # concurrent reads, no write lock on reads
+    c.execute("PRAGMA synchronous=NORMAL") # fsync only at checkpoints, safe + fast
+    c.execute("PRAGMA cache_size=-32000")  # 32 MB page cache
+    c.close()
 
 
 def init_db():

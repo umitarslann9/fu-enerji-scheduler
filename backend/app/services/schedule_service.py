@@ -1,6 +1,7 @@
 import json
 
 from fastapi import HTTPException
+from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
 from app.models.schemas import (
@@ -17,7 +18,10 @@ from app.scheduler.solver import generate_schedule
 def run_generate(session: Session) -> Schedule:
     teachers = session.exec(select(Teacher)).all()
     classrooms = session.exec(select(Classroom)).all()
-    subjects = session.exec(select(Subject)).all()
+    # selectinload: tek sorguda tüm subject.classrooms ilişkilerini yükle
+    subjects = session.exec(
+        select(Subject).options(selectinload(Subject.classrooms))
+    ).all()
 
     if not teachers or not classrooms or not subjects:
         raise HTTPException(

@@ -29,7 +29,22 @@ def _to_read(subject: Subject) -> SubjectRead:
 
 def get_all(session: Session) -> list[SubjectRead]:
     subjects = session.exec(select(Subject)).all()
-    return [_to_read(s) for s in subjects]
+    # Tek sorguda tüm bağlantıları çek — her subject için ayrı lazy-load yerine
+    links = session.exec(select(ClassroomSubjectLink)).all()
+    cids_map: dict[int, list[int]] = {}
+    for lnk in links:
+        if lnk.subject_id is not None and lnk.classroom_id is not None:
+            cids_map.setdefault(lnk.subject_id, []).append(lnk.classroom_id)
+    return [
+        SubjectRead(
+            id=s.id,
+            name=s.name,
+            weekly_hours=s.weekly_hours,
+            teacher_id=s.teacher_id,
+            classroom_ids=cids_map.get(s.id, []),
+        )
+        for s in subjects
+    ]
 
 
 def get_one(session: Session, subject_id: int) -> SubjectRead:

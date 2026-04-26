@@ -48,6 +48,9 @@ export const api = {
     }) => request<Subject>(`/subjects/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id: number) => request<void>(`/subjects/${id}`, { method: 'DELETE' }),
   },
+  seed: {
+    run: () => request<{ classrooms: number; teachers: number; subjects: number }>('/seed', { method: 'POST' }),
+  },
   schedule: {
     generate: () => request<Schedule>('/schedule/generate', { method: 'POST' }),
     latest: async (): Promise<Schedule | null> => {
