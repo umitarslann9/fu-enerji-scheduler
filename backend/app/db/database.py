@@ -18,10 +18,13 @@ def init_db():
     """Tabloları oluştur (uygulama başlarken çağrılır)."""
     SQLModel.metadata.create_all(engine)
     with engine.connect() as conn:
-        # --- teacher: branch kolonu ---
+        # --- teacher: branch + is_on_leave kolonları ---
         teacher_cols = [row[1] for row in conn.execute(text("PRAGMA table_info(teacher)"))]
         if "branch" not in teacher_cols:
             conn.execute(text("ALTER TABLE teacher ADD COLUMN branch VARCHAR NOT NULL DEFAULT ''"))
+            conn.commit()
+        if "is_on_leave" not in teacher_cols:
+            conn.execute(text("ALTER TABLE teacher ADD COLUMN is_on_leave BOOLEAN NOT NULL DEFAULT 0"))
             conn.commit()
 
         # --- classroom: section + student_count kolonları ---

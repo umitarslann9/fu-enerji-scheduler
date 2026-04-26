@@ -10,6 +10,7 @@ const LINKS = [
   { href: '/classrooms', label: 'Sınıflar' },
   { href: '/subjects', label: 'Dersler' },
   { href: '/schedule', label: 'Program' },
+  { href: '/teacher-schedule', label: 'Öğretmen Prog.' },
 ]
 
 export function Nav() {

@@ -71,7 +71,7 @@ def generate_schedule(
     needs: list[BlockNeed] = []
     for subject in subjects:
         teacher = teacher_map.get(subject.teacher_id)
-        if not teacher:
+        if not teacher or teacher.is_on_leave:
             continue
         avail = parse_availability(teacher.availability)
         for classroom in subject.classrooms:

@@ -63,6 +63,7 @@ class TeacherBase(SQLModel):
     branch: str = Field(default='', max_length=100)
     # JSON-encoded 5x8 matrix — SQLite için en pratik yol
     availability: str = Field(default_factory=default_availability)
+    is_on_leave: bool = Field(default=False)
 
 
 class Teacher(TeacherBase, table=True):
@@ -87,6 +88,7 @@ class TeacherUpdate(SQLModel):
     name: Optional[str] = None
     branch: Optional[str] = Field(default=None, max_length=100)
     availability: Optional[str] = None
+    is_on_leave: Optional[bool] = None
 
     @field_validator('branch')
     @classmethod

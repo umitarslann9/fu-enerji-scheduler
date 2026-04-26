@@ -20,7 +20,7 @@ export const api = {
     list: () => request<Teacher[]>('/teachers'),
     create: (name: string, branch: string) =>
       request<Teacher>('/teachers', { method: 'POST', body: JSON.stringify({ name, branch }) }),
-    update: (id: number, data: { name?: string; branch?: string; availability?: string }) =>
+    update: (id: number, data: { name?: string; branch?: string; availability?: string; is_on_leave?: boolean }) =>
       request<Teacher>(`/teachers/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id: number) => request<void>(`/teachers/${id}`, { method: 'DELETE' }),
   },

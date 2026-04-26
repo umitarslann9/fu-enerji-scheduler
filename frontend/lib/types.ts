@@ -3,6 +3,7 @@ export interface Teacher {
   name: string
   branch: string
   availability: string // JSON 5×8 boolean matrix
+  is_on_leave: boolean
 }
 
 export interface Classroom {

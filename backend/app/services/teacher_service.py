@@ -32,29 +32,50 @@ def update(session: Session, teacher_id: int, data: TeacherUpdate) -> Teacher:
     new_branch = update_data.get('branch')
     branch_changed = new_branch is not None and new_branch != teacher.branch
 
+    new_name = update_data.get('name')
+    name_changed = new_name is not None and new_name != teacher.name
+
+    new_is_on_leave = update_data.get('is_on_leave')
+    leave_changed = new_is_on_leave is not None and new_is_on_leave != teacher.is_on_leave
+
     for field, value in update_data.items():
         setattr(teacher, field, value)
 
-    if branch_changed:
-        # Bu öğretmene bağlı tüm derslerin adını güncelle
+    if branch_changed or name_changed or leave_changed:
         subjects = session.exec(select(Subject).where(Subject.teacher_id == teacher_id)).all()
         subject_ids = {s.id for s in subjects}
-        for subject in subjects:
-            subject.name = new_branch
-            session.add(subject)
 
-        # Son programdaki subject_name alanlarını da güncelle
-        if subject_ids:
-            latest = session.exec(
-                select(ScheduleResult).order_by(ScheduleResult.id.desc())
-            ).first()
-            if latest:
-                lessons = json.loads(latest.lessons_json)
-                for lesson in lessons:
-                    if lesson.get('subject_id') in subject_ids:
-                        lesson['subject_name'] = new_branch
-                latest.lessons_json = json.dumps(lessons)
-                session.add(latest)
+        if branch_changed:
+            for subject in subjects:
+                subject.name = new_branch
+                session.add(subject)
+
+        latest = session.exec(
+            select(ScheduleResult).order_by(ScheduleResult.id.desc())
+        ).first()
+        if latest:
+            lessons = json.loads(latest.lessons_json)
+            for lesson in lessons:
+                if name_changed and lesson.get('teacher_id') == teacher_id:
+                    lesson['teacher_name'] = new_name
+                if branch_changed and lesson.get('subject_id') in subject_ids:
+                    lesson['subject_name'] = new_branch
+            latest.lessons_json = json.dumps(lessons)
+
+            if leave_changed:
+                latest.is_feasible = False
+                if new_is_on_leave:
+                    latest.message = (
+                        f"{teacher.name} izne ayrıldı — "
+                        "mevcut program geçerliliğini yitirdi, lütfen yeniden oluşturun."
+                    )
+                else:
+                    latest.message = (
+                        f"{teacher.name} izinden döndü — "
+                        "lütfen programı yeniden oluşturun."
+                    )
+
+            session.add(latest)
 
     session.add(teacher)
     session.commit()

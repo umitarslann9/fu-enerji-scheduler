@@ -139,7 +139,8 @@ frontend/
 ## Başarı Kriterleri
 
 - [ ] Seed data ile sorunsuz çalışıyor (3 sınıf, 5 öğretmen, 10 ders)
-- [x] Infeasible durumda anlamlı hata mesajı
+- [x] Infeasible durumda anlamlı hata mesajı ("Geçerli program bulunamadı…")
+- [ ] Infeasible durumda hangi ders atanamadı (detay)
 - [x] UI'da çakışma görsel olarak yok (solver garantiler)
 - [ ] README self-explanatory (canlı link dahil)
 - [ ] Canlı link çalışıyor

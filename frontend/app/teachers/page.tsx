@@ -65,6 +65,7 @@ export default function TeachersPage() {
   // Müsaitlik grid dialogu
   const [editAvailTeacher, setEditAvailTeacher] = useState<Teacher | null>(null)
   const [editAvail, setEditAvail] = useState<boolean[][]>([])
+  const [editIsOnLeave, setEditIsOnLeave] = useState(false)
   const [savingAvail, setSavingAvail] = useState(false)
 
   function load() {
@@ -146,6 +147,7 @@ export default function TeachersPage() {
 
   function openEditAvail(t: Teacher) {
     setEditAvailTeacher(t)
+    setEditIsOnLeave(t.is_on_leave)
     try {
       setEditAvail(JSON.parse(t.availability) as boolean[][])
     } catch {
@@ -159,8 +161,9 @@ export default function TeachersPage() {
     try {
       await api.teachers.update(editAvailTeacher.id, {
         availability: JSON.stringify(editAvail),
+        is_on_leave: editIsOnLeave,
       })
-      toast.success('Müsaitlik kaydedildi.')
+      toast.success(editIsOnLeave ? `${editAvailTeacher.name} izinli olarak işaretlendi.` : 'Müsaitlik kaydedildi.')
       setEditAvailTeacher(null)
       load()
     } catch (err: unknown) {
@@ -271,7 +274,16 @@ export default function TeachersPage() {
           <TableBody>
             {filtered.map((t) => (
               <TableRow key={t.id}>
-                <TableCell className="font-medium">{t.name}</TableCell>
+                <TableCell className="font-medium">
+                  <span className="flex items-center gap-2">
+                    {t.name}
+                    {t.is_on_leave && (
+                      <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                        İzinli
+                      </span>
+                    )}
+                  </span>
+                </TableCell>
                 <TableCell className="text-muted-foreground">{t.branch || '—'}</TableCell>
                 <TableCell>
                   {(() => {
@@ -362,10 +374,23 @@ export default function TeachersPage() {
           <DialogHeader>
             <DialogTitle>{editAvailTeacher?.name} — Müsaitlik</DialogTitle>
           </DialogHeader>
+          <label className="flex cursor-pointer items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-800 dark:bg-amber-900/20">
+            <input
+              type="checkbox"
+              checked={editIsOnLeave}
+              onChange={(e) => setEditIsOnLeave(e.target.checked)}
+              className="accent-amber-600 size-4 shrink-0"
+            />
+            <span className="text-sm font-medium text-amber-800 dark:text-amber-300">İzinli</span>
+            <span className="ml-auto text-xs text-amber-600 dark:text-amber-400">
+              {editIsOnLeave ? 'Tüm slotlar devre dışı' : 'İşaretlersen ders veremez'}
+            </span>
+          </label>
           <AvailabilityGrid
             value={editAvail}
             onChange={setEditAvail}
             scheduledSlots={editAvailTeacher ? scheduledSlotsFor(editAvailTeacher.id) : undefined}
+            isOnLeave={editIsOnLeave}
           />
           <DialogFooter>
             <Button onClick={handleSaveAvail} disabled={savingAvail}>

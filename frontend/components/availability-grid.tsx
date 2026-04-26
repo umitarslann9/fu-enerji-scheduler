@@ -10,18 +10,19 @@ interface Props {
   readOnly?: boolean
   /** "gün,period" string'lerinden oluşan set — programda dolu slotları işaretler */
   scheduledSlots?: Set<string>
+  isOnLeave?: boolean
 }
 
-export function AvailabilityGrid({ value, onChange, readOnly, scheduledSlots }: Props) {
+export function AvailabilityGrid({ value, onChange, readOnly, scheduledSlots, isOnLeave }: Props) {
   function toggle(day: number, period: number) {
-    if (readOnly || !onChange) return
+    if (readOnly || !onChange || isOnLeave) return
     if (scheduledSlots?.has(`${day},${period}`)) return
     onChange(value.map((row, d) =>
       row.map((cell, p) => (d === day && p === period ? !cell : cell))
     ))
   }
 
-  const hasScheduled = scheduledSlots && scheduledSlots.size > 0
+  const hasScheduled = !isOnLeave && scheduledSlots && scheduledSlots.size > 0
 
   return (
     <div className="space-y-3">
@@ -42,35 +43,33 @@ export function AvailabilityGrid({ value, onChange, readOnly, scheduledSlots }: 
               <tr key={period}>
                 <td className="pr-2 text-right text-muted-foreground">{period + 1}.</td>
                 {Array.from({ length: 5 }, (_, day) => {
-                  const checked = value[day]?.[period] ?? false
-                  const scheduled = scheduledSlots?.has(`${day},${period}`) ?? false
+                  const checked = !isOnLeave && (value[day]?.[period] ?? false)
+                  const scheduled = !isOnLeave && (scheduledSlots?.has(`${day},${period}`) ?? false)
                   return (
                     <td key={day} className="p-0.5 text-center">
                       <button
                         type="button"
                         onClick={() => toggle(day, period)}
-                        disabled={readOnly || scheduled}
+                        disabled={readOnly || scheduled || isOnLeave}
                         className={cn(
                           'size-7 rounded border transition-colors',
-                          scheduled
-                            ? 'border-red-600 bg-red-500 cursor-default'
-                            : checked
-                              ? 'border-green-600 bg-green-500'
-                              : 'border-gray-700 bg-gray-800 hover:bg-gray-700',
-                          (readOnly || scheduled) && 'cursor-default'
+                          isOnLeave
+                            ? 'border-gray-600 bg-gray-700 cursor-default opacity-50'
+                            : scheduled
+                              ? 'border-red-600 bg-red-500 cursor-default'
+                              : checked
+                                ? 'border-green-600 bg-green-500'
+                                : 'border-gray-700 bg-gray-800 hover:bg-gray-700',
+                          (readOnly || scheduled || isOnLeave) && 'cursor-default'
                         )}
                         aria-label={
-                          scheduled
-                            ? `${DAYS[day]} ${period + 1}. ders — programda dolu`
-                            : `${DAYS[day]} ${period + 1}. ders ${checked ? 'müsait' : 'müsait değil'}`
+                          isOnLeave
+                            ? `${DAYS[day]} ${period + 1}. ders — izinli`
+                            : scheduled
+                              ? `${DAYS[day]} ${period + 1}. ders — programda dolu`
+                              : `${DAYS[day]} ${period + 1}. ders ${checked ? 'müsait' : 'müsait değil'}`
                         }
-                        title={
-                          scheduled
-                            ? 'Programda ders var'
-                            : checked
-                              ? 'Müsait'
-                              : 'Müsait değil'
-                        }
+                        title={isOnLeave ? 'İzinli' : scheduled ? 'Programda ders var' : checked ? 'Müsait' : 'Müsait değil'}
                       />
                     </td>
                   )
@@ -82,10 +81,12 @@ export function AvailabilityGrid({ value, onChange, readOnly, scheduledSlots }: 
       </div>
 
       <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block size-3 rounded border border-green-600 bg-green-500" />
-          Müsait
-        </span>
+        {!isOnLeave && (
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block size-3 rounded border border-green-600 bg-green-500" />
+            Müsait
+          </span>
+        )}
         {hasScheduled && (
           <span className="flex items-center gap-1.5">
             <span className="inline-block size-3 rounded border border-red-600 bg-red-500" />
@@ -93,8 +94,8 @@ export function AvailabilityGrid({ value, onChange, readOnly, scheduledSlots }: 
           </span>
         )}
         <span className="flex items-center gap-1.5">
-          <span className="inline-block size-3 rounded border border-gray-700 bg-gray-800" />
-          Müsait değil
+          <span className="inline-block size-3 rounded border border-gray-700 bg-gray-800 opacity-50" />
+          {isOnLeave ? 'İzinli — tüm slotlar devre dışı' : 'Müsait değil'}
         </span>
       </div>
     </div>
