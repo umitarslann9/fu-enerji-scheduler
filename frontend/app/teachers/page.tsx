@@ -332,7 +332,7 @@ export default function TeachersPage() {
 
       {/* Ad / Branş düzenleme dialogu */}
       <Dialog open={!!editInfoTeacher} onOpenChange={(open) => !open && setEditInfoTeacher(null)}>
-        <DialogContent className="sm:max-w-xs">
+        <DialogContent className="sm:max-w-xs" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>Öğretmeni Düzenle</DialogTitle>
           </DialogHeader>
@@ -370,7 +370,7 @@ export default function TeachersPage() {
 
       {/* Müsaitlik grid dialogu */}
       <Dialog open={!!editAvailTeacher} onOpenChange={(open) => !open && setEditAvailTeacher(null)}>
-        <DialogContent className="sm:max-w-sm">
+        <DialogContent className="sm:max-w-sm" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>{editAvailTeacher?.name} — Müsaitlik</DialogTitle>
           </DialogHeader>

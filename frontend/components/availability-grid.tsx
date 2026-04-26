@@ -52,14 +52,14 @@ export function AvailabilityGrid({ value, onChange, readOnly, scheduledSlots, is
                         onClick={() => toggle(day, period)}
                         disabled={readOnly || scheduled || isOnLeave}
                         className={cn(
-                          'size-7 rounded border transition-colors',
+                          'size-7 rounded border transition-colors duration-150',
                           isOnLeave
-                            ? 'border-gray-600 bg-gray-700 cursor-default opacity-50'
+                            ? 'cursor-default border-border bg-muted/40 opacity-40'
                             : scheduled
-                              ? 'border-red-600 bg-red-500 cursor-default'
+                              ? 'cursor-default border-red-400 bg-red-100 dark:border-red-700 dark:bg-red-900/40'
                               : checked
-                                ? 'border-green-600 bg-green-500'
-                                : 'border-gray-700 bg-gray-800 hover:bg-gray-700',
+                                ? 'border-emerald-500 bg-emerald-100 hover:bg-emerald-200 dark:border-emerald-600 dark:bg-emerald-900/40 dark:hover:bg-emerald-900/60'
+                                : 'border-border bg-background hover:bg-muted dark:bg-muted/20',
                           (readOnly || scheduled || isOnLeave) && 'cursor-default'
                         )}
                         aria-label={
@@ -83,18 +83,18 @@ export function AvailabilityGrid({ value, onChange, readOnly, scheduledSlots, is
       <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
         {!isOnLeave && (
           <span className="flex items-center gap-1.5">
-            <span className="inline-block size-3 rounded border border-green-600 bg-green-500" />
+            <span className="inline-block size-3 rounded border border-emerald-500 bg-emerald-100 dark:border-emerald-600 dark:bg-emerald-900/40" />
             Müsait
           </span>
         )}
         {hasScheduled && (
           <span className="flex items-center gap-1.5">
-            <span className="inline-block size-3 rounded border border-red-600 bg-red-500" />
+            <span className="inline-block size-3 rounded border border-red-400 bg-red-100 dark:border-red-700 dark:bg-red-900/40" />
             Programda dolu
           </span>
         )}
         <span className="flex items-center gap-1.5">
-          <span className="inline-block size-3 rounded border border-gray-700 bg-gray-800 opacity-50" />
+          <span className="inline-block size-3 rounded border border-border bg-background opacity-60 dark:bg-muted/20" />
           {isOnLeave ? 'İzinli — tüm slotlar devre dışı' : 'Müsait değil'}
         </span>
       </div>

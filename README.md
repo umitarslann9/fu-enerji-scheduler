@@ -17,27 +17,36 @@ Ders programı otomatik oluşturma uygulaması — okul idarecileri için CSP ta
 fu-enerji-scheduler/
 ├── frontend/
 │   ├── app/
-│   │   ├── page.tsx           # Dashboard (stat kartlar + son program)
-│   │   ├── teachers/          # Öğretmen CRUD + branş + müsaitlik matrisi
-│   │   ├── classrooms/        # Sınıf CRUD (sınıf + şube + öğrenci sayısı)
-│   │   ├── subjects/          # Ders CRUD + düzenleme (branş-öğretmen sync)
-│   │   └── schedule/          # Program oluştur + dropdown sınıf seçimi + haftalık grid
+│   │   ├── page.tsx                # Dashboard (stat kartlar + son program)
+│   │   ├── providers.tsx           # next-themes ThemeProvider
+│   │   ├── teachers/               # Öğretmen CRUD + branş + müsaitlik matrisi
+│   │   ├── classrooms/             # Sınıf CRUD (sınıf + şube + öğrenci sayısı)
+│   │   ├── subjects/               # Ders CRUD + düzenleme (branş-öğretmen sync)
+│   │   ├── schedule/               # Ders programı — dropdown sınıf seçimi + haftalık grid
+│   │   └── teacher-schedule/       # Öğretmen programı — dropdown + haftalık grid
 │   ├── components/
-│   │   ├── nav.tsx            # Üst navigasyon
-│   │   └── availability-grid.tsx  # 5×8 interaktif matris (yeşil/kırmızı/siyah)
+│   │   ├── nav.tsx                 # Üst navigasyon + dark mode toggle (Sun/Moon)
+│   │   └── availability-grid.tsx   # 5×8 interaktif matris (emerald/red/border)
 │   └── lib/
-│       ├── api.ts             # Typed API client
-│       └── types.ts           # Backend şemalarına karşılık TS tipleri
+│       ├── api.ts                  # Typed API client
+│       └── types.ts                # Backend şemalarına karşılık TS tipleri
 ├── backend/
 │   └── app/
-│       ├── main.py            # FastAPI entry point + CORS (ALLOWED_ORIGINS env)
-│       ├── db/database.py     # SQLite bağlantısı + idempotent migration
-│       ├── models/schemas.py  # SQLModel tablo modelleri + Pydantic şemaları
-│       ├── routers/           # teachers / classrooms / subjects / schedule
-│       ├── services/          # İş mantığı + cascade update katmanı
-│       └── scheduler/solver.py  # CSP + Backtracking algoritması
+│       ├── main.py                 # FastAPI entry point + CORS (ALLOWED_ORIGINS env)
+│       ├── db/database.py          # SQLite bağlantısı + idempotent migration
+│       ├── models/schemas.py       # SQLModel tablo modelleri + Pydantic şemaları
+│       ├── routers/                # teachers / classrooms / subjects / schedule
+│       ├── services/               # İş mantığı + cascade update katmanı
+│       └── scheduler/solver.py     # CSP + Backtracking algoritması
 └── ROADMAP.md
 ```
+
+## Tasarım Sistemi
+
+- **Font:** Inter (400/500/600) — next/font ile yüklü
+- **Renkler:** zinc-50/100/200/900/950 nötr skalası; blue-600 primary accent
+- **Dark mode:** next-themes (attribute="class"); navbar'da Sun/Moon toggle
+- **Timetable renkleri:** golden-angle algoritması (i × 137.5° mod 360°) — her ders/sınıf için benzersiz ton
 
 ## Veri Modeli
 
@@ -80,6 +89,7 @@ Hard constraints: öğretmen çakışması yok · sınıf çakışması yok · a
 cd backend
 uv sync
 uv run python main.py
+# → http://localhost:8000
 ```
 
 ### Frontend
@@ -87,6 +97,7 @@ uv run python main.py
 cd frontend
 npm install
 npm run dev
+# → http://localhost:3000
 ```
 
 `NEXT_PUBLIC_API_URL` tanımlanmazsa varsayılan `http://localhost:8000`.  
@@ -111,22 +122,19 @@ npm run dev
 
 - [x] Veri modelleri (Teacher + branch, Classroom + section + student_count, Subject, ScheduleResult)
 - [x] CRUD endpoints + service layer mimarisi
-- [x] Cascade update — 6 farklı tetikleyici (branş, sınıf adı, ders adı, öğretmen, sınıf çıkarma, haftalık saat)
+- [x] Cascade update — 6 farklı tetikleyici
 - [x] Scheduler algoritması (MRV + backtracking + block-based)
-- [x] Frontend — 5 sayfa (Dashboard, Öğretmenler, Sınıflar, Dersler, Program)
-- [x] Availability grid (yeşil/kırmızı/siyah overlay)
-- [x] Öğretmen sayfası: branş, arama/filtre, ayrı düzenleme + müsaitlik butonları, boş saat sayacı (X/Y)
-- [x] Sınıf sayfası: grade + section + öğrenci sayısı, düzenleme dialogu, silme onayı, arama filtresi, buton sağ üst
-- [x] Dersler sayfası: tam CRUD (ekle + düzenle + sil); branş-öğretmen bidirectional sync; ClassroomPicker dropdown; arama filtresi (ders adı / öğretmen)
-- [x] Program sayfası: dropdown sınıf seçimi (tab yerine); tam gün adları; PDF indirme (tarayıcı print → PDF)
-- [x] Dashboard: Öğretmen / Sınıf / Ders / Toplam Öğrenci stat kartları
-- [x] Tüm sayfalarda tutarlı UX: ekle butonu sağ üstte, form kart içinde açılır/kapanır, arama çubuğu
-- [x] CORS env var
-- [x] DB migration: idempotent (init_db'de PRAGMA + ALTER TABLE)
-- [x] SQLite performans optimizasyonu (WAL mode, NORMAL sync, 32 MB page cache)
-- [x] N+1 sorgu düzeltmesi (subjects lazy-load → tek sorgu; solver selectinload)
-- [x] Seed data — Dashboard "Demo Veri Yükle" butonu; 16 sınıf (9-12, A-D), 26 öğretmen, ~%82 doluluk
-- [x] Solver sonsuz döngü koruması (3M iterasyon limiti)
+- [x] Frontend — 6 sayfa (Dashboard, Öğretmenler, Sınıflar, Dersler, Programlar, Öğretmen Programları)
+- [x] Availability grid (emerald/red/border, light+dark aware)
+- [x] Öğretmen sayfası: branş, arama/filtre, müsaitlik dialogu, boş saat sayacı
+- [x] Sınıf, Ders sayfaları: tam CRUD + branş-öğretmen sync + ClassroomPicker
+- [x] Program sayfaları: dropdown seçimi + renkli haftalık grid + PDF indirme
+- [x] Dashboard: stat kartlar + son program durumu
+- [x] Seed data (16 sınıf, 26 öğretmen, ~%82 doluluk)
+- [x] SQLite WAL + N+1 fix + solver sonsuz döngü koruması
+- [x] Dark mode (next-themes) + Inter font + zinc/blue design token'ları
+- [x] Timetable golden-angle renk algoritması (benzersiz renkler garantisi)
+- [x] Öğretmen programı alfabetik sıralama
 - [ ] Deploy (Vercel + Railway)
 - [ ] İnfeasible schedule — hangi ders atanamadı detayı
 

@@ -125,10 +125,9 @@ export default function DashboardPage() {
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <span
-                  className="inline-flex size-2 rounded-full"
-                  style={{ backgroundColor: schedule.is_feasible ? '#22c55e' : '#ef4444' }}
+                  className={`inline-flex size-2 rounded-full ${schedule.is_feasible ? 'bg-emerald-500' : 'bg-red-500'}`}
                 />
-                <span className="font-medium">
+                <span className={`font-medium ${schedule.is_feasible ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
                   {schedule.is_feasible ? 'Geçerli Program' : 'Çözüm Bulunamadı'}
                 </span>
               </div>

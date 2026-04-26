@@ -1,5 +1,5 @@
 Fu Enerji Case Study — Ders Programı Çizelgeleme Uygulaması
-> **Süre:** 2 gün | **Stack:** Next.js 16 + FastAPI + Greedy/Backtracking | **Deploy:** Vercel + Railway
+> **Süre:** ~3 gün | **Stack:** Next.js 16 + FastAPI + MRV Backtracking | **Deploy:** Vercel + Railway
 
 ---
 
@@ -18,19 +18,19 @@ Fu Enerji Case Study — Ders Programı Çizelgeleme Uygulaması
 | Blok dağıtım | Split: 1=[1], 2=[2], 3=[3], 4=[2,2], 5=[3,2], 6=[3,3] | Ardışık periyot garantisi; aynı günde tekrar yok |
 | Frontend veri çekme | `useClient` + useEffect | External API → Server Components değer üretmiyor |
 | Availability | Dialog (modal) | Sayfa temiz kalır; 5×8 grid inline overkill |
-| Teacher branş | Zorunlu alan (TeacherCreate validator) | Ders adı otomatik türetmek için gerekli; mevcut kayıtlar boş geçebilir (ResponseValidationError önlemi) |
-| Classroom modeli | grade + section + student_count | İnsan okunabilir ad (9-A) türetilir; istatistik için student_count saklanır |
-| Cascade güncelleme | Service layer, tek transaction | Branch değişince Subject.name + lessons_json güncellenir; sınıf adı değişince lessons_json güncellenir |
+| Teacher branş | Zorunlu alan | Ders adı otomatik türetmek için gerekli |
+| Classroom modeli | grade + section + student_count | İnsan okunabilir ad (9-A) türetilir |
+| Cascade güncelleme | Service layer, tek transaction | 6 farklı tetikleyici, hepsi atomik |
 | DB migration | Idempotent (PRAGMA table_info + ALTER TABLE) | Hem taze kurulum hem mevcut DB'yi destekler |
 | CORS | ALLOWED_ORIGINS env var | Farklı ortamlar için hardcode değil |
-| Subject PUT cascade | 6 tetikleyici, tek flush+commit | Ad/öğretmen/sınıf/saat değişikliği → lessons_json tek atomik güncelleme |
-| Multi-select dropdown | useRef + pointerdown (custom) | Yeni paket gerektirmez; shadcn Select görünümüne uyumlu |
-| Branş-öğretmen senkronu | Bidirectional (ad↔öğretmen) | Ders adı branşı yönlendirir; yanlış öğretmen atamasını önler |
+| Multi-select dropdown | useRef + pointerdown (custom) | Yeni paket gerektirmez |
+| Branş-öğretmen senkronu | Bidirectional (ad↔öğretmen) | Yanlış öğretmen atamasını önler |
 | Program sınıf seçimi | Select dropdown (Tabs yerine) | Çok sınıfta Tabs taşar; dropdown ölçeklenir |
-| Sınıf sütunu | Tooltip (info ikonu hover) | Tablo satırını şişirmez; gerektiğinde detay görünür |
-| PDF indirme | window.open + window.print() | Yeni paket gerektirmez; tarayıcı native print → PDF |
-| Arama filtreleri | Client-side, anlık | Tüm listelerde tutarlı UX; server round-trip gereksiz |
-| Ekle formu | Collapsible kart (buton sağ üst) | Tüm sayfalarda aynı pattern; boş sayfa temiz görünür |
+| PDF indirme | window.open + window.print() | Yeni paket gerektirmez |
+| Timetable renk algoritması | Golden-angle (i × 137.5° mod 360°) | Sonsuz benzersiz hue garantisi; 26 derste bile çakışma yok |
+| Dark mode | next-themes (attribute="class") | SSR hydration uyumlu; sistem teması destekli |
+| Font | Inter 400/500/600 | Minimal SaaS estetiği; Geist'tan daha nötr |
+| Design token'lar | zinc nötr + blue-600 accent | Linear/Notion estetiği; gradient/glow yok |
 
 ---
 
@@ -38,117 +38,79 @@ Fu Enerji Case Study — Ders Programı Çizelgeleme Uygulaması
 
 ### ✅ Adım 1 — Proje İskeleti
 - Monorepo: `frontend/` + `backend/`
-- Next.js 16 (App Router, TypeScript, Tailwind 4, shadcn/ui New York Slate)
+- Next.js 16 (App Router, TypeScript, Tailwind 4, shadcn/ui)
 - FastAPI + uv, klasör yapısı
 - `.gitignore`, README taslağı
 
 ### ✅ Adım 2 — Veri Modeli
 - `Teacher` (name + branch), `Classroom` (grade + section + student_count + name), `Subject`, `ClassroomSubjectLink`
-- `Lesson`, `Schedule` (Pydantic only, scheduler çıktısı)
-- `ScheduleResult` (DB'de kalıcı saklama)
+- `Lesson`, `Schedule` (Pydantic only), `ScheduleResult` (DB kalıcı)
 - Availability: 5×8 boolean matrix → JSON string
-- Test: `backend/tests/test_models_sanity.py` ✓
 
 ### ✅ Adım 3 — CRUD Endpoints + Scheduler
-**Service layer mimarisi:**
-```
-backend/app/
-├── services/
-│   ├── teacher_service.py    get_all, get_one, create, update (branch cascade), delete (409 if subjects)
-│   ├── classroom_service.py  get_all, get_one, create, update (name cascade), delete (links temizlenir)
-│   ├── subject_service.py    get_all, get_one, create, update (6 cascade), delete (links temizlenir)
-│   └── schedule_service.py   run_generate, get_latest
-└── routers/
-    ├── teachers.py   GET/POST/GET{id}/PUT{id}/DELETE{id}
-    ├── classrooms.py GET/POST/GET{id}/PUT{id}/DELETE{id}
-    ├── subjects.py   GET/POST/GET{id}/PUT{id}/DELETE{id}
-    └── schedule.py   POST /generate, GET /
-```
-
-**Scheduler (CSP — `scheduler/solver.py`):**
-```
-1. Split    — weekly_hours → blok listesi:
-               1=[1]  2=[2]  3=[3]  4=[2,2]  5=[3,2]  6=[3,3]
-2. Expand   — (subject, classroom) × blok sayısı → BlockNeed listesi
-3. MRV sort — öğretmen availability sayısına göre artan (erken fail)
-4. Backtrack — valid slot yoksa önceki atamaya geri dön (3M iterasyon limiti)
-5. Spread   — teacher_day_load ile sort → bloklar haftaya doğal yayılır
-```
-- Hard constraints: öğretmen/sınıf çakışması · availability · blok içi ardışık periyotlar · aynı (ders,sınıf) aynı günde tekrar yok
-- `ScheduleResult` tablosuna JSON olarak yazılır; `GET /schedule` DB'den okur
+- Service layer mimarisi (router → service → DB)
+- Scheduler: Split → Expand → MRV sort → Backtrack → Spread
+- Hard constraints: öğretmen/sınıf çakışması · availability · blok ardışıklığı · günlük tekrar yok
 
 ### ✅ Adım 4 — Cascade Güncelleme
-- Öğretmen branşı değişince → ilgili `Subject.name` kayıtları + son `ScheduleResult.lessons_json` güncellenir
-- Sınıf grade/section değişince → `Classroom.name` yeniden türetilir + son `ScheduleResult.lessons_json` güncellenir
-- Ders adı değişince → `lessons_json` içindeki `subject_name` güncellenir
-- Dersin öğretmeni değişince → `teacher_id` + `teacher_name` güncellenir
-- Dersten sınıf çıkarılınca → o sınıfa ait ders satırları `lessons_json`'dan silinir
-- Haftalık saat değişince → `is_feasible = False`, yeniden oluşturma uyarısı
-- Tüm cascade'ler tek transaction içinde (session.flush + commit)
+- 6 tetikleyici; hepsi tek transaction içinde (session.flush + commit)
+- Branch değişimi → Subject.name + lessons_json
+- Sınıf adı değişimi → lessons_json
+- Öğretmen/ders/sınıf değişimi → lessons_json
 
 ### ✅ Adım 5 — Frontend Sayfaları
-**Stack:** Next.js 16 + React 19 + Tailwind 4 + shadcn/ui  
-**Pattern:** `'use client'` + useState/useEffect (external API → SSR değersiz)
-
-```
-frontend/
-├── lib/api.ts              Typed fetch client; 404 → null (schedule/latest)
-├── lib/types.ts            Backend şemalarına 1:1 TS tipleri
-├── components/
-│   ├── nav.tsx             Sticky top bar; active highlight
-│   └── availability-grid.tsx  5×8 interaktif checkbox matrisi
-│                               (yeşil=müsait, kırmızı=programda dolu, siyah=müsait değil)
-└── app/
-    ├── page.tsx            Dashboard: 4 stat kart (öğretmen/sınıf/ders/toplam öğrenci) + son program
-    ├── teachers/page.tsx   Liste + arama/filtre (isim/branş) + ekle + düzenle + müsaitlik; boş saat sayacı
-    ├── classrooms/page.tsx Liste + ekle + düzenle (grade+section+student_count) + sil (onaylı)
-    ├── subjects/page.tsx   Liste + ekle + düzenle (full cascade); branş-öğretmen sync; ClassroomPicker
-    └── schedule/page.tsx   Oluştur + Select dropdown sınıf seçimi + renkli haftalık grid
-```
+- 6 sayfa: Dashboard · Öğretmenler · Sınıflar · Dersler · Programlar · Öğretmen Programları
+- Typed API client (`lib/api.ts`)
+- AvailabilityGrid 5×8 interaktif matris
+- ClassroomPicker custom multi-select dropdown
+- Branş-öğretmen bidirectional senkron
+- PDF: window.open + window.print()
 
 ### ✅ Adım 6 — UX İyileştirmeleri
-- Tüm sayfalar: ekle butonu sağ üstte, form collapsible kart içinde (tutarlı pattern)
-- Tüm listeler: anlık arama filtresi (isim, branş, sınıf adı, şube, öğretmen adına göre)
-- Öğretmen sayfası: boş saat sayacı (X/Y formatı)
-- Sınıf sayfası: düzenleme dialogu, silme onayı (window.confirm)
-- Dersler sayfası: sınıf sütununda hover tooltip (info ikonu); ders düzenleme; branş-öğretmen bidirectional senkron; ClassroomPicker custom dropdown
-- Program sayfası: Tabs → Select dropdown; tam gün adları (Pazartesi…Cuma); PDF butonu (window.open + window.print)
+- Tüm sayfalarda tutarlı pattern: sağ üst ekle butonu, collapsible form, anlık arama
+- Boş saat sayacı (X/Y formatı), hover tooltip, silme onayı
+- Program sayfası: Tabs → Select dropdown; tam gün adları
+
+### ✅ Adım 7 — Seed Data & Performans
+- Dashboard "Demo Veri Yükle": 16 sınıf (9-12, A-D), 26 öğretmen, ~%82 doluluk
+- SQLite WAL mode + NORMAL sync + 32 MB page cache
+- N+1 sorgu düzeltmesi (subjects + solver selectinload)
+- Solver 3M iterasyon limiti
+
+### ✅ Adım 8 — Görsel Tasarım (Design System)
+- Inter font (400/500/600) ile Geist değiştirildi
+- Design token'lar: zinc-50/100/200/900/950 nötr; blue-600 primary
+- Dark mode: next-themes ThemeProvider + navbar Sun/Moon toggle
+- Timetable: golden-angle renk algoritması — 8 sabit renk → sonsuz benzersiz ton
+- Öğretmen programı: alfabetik öğretmen listesi
+- Availability grid: hardcoded dark renkler → emerald/red/border semantic
+- Hardcoded hex renkler (#16a34a, #dc2626 vb.) kaldırıldı, Tailwind token'larına geçildi
+- Radix Dialog accessibility warning'leri (aria-describedby) düzeltildi
 
 ---
 
 ## Kalan Adımlar
 
-### ✅ Adım 7 — Seed Data & Performans
-- [x] Dashboard "Demo Veri Yükle" butonu — onay dialogu ile, mevcut veriyi sıfırlar
-- [x] 16 sınıf (9-12, 4 şube A-D), 26 öğretmen, 26 ders — ~%82 program doluluk oranı
-- [x] SQLite WAL mode + NORMAL sync + 32 MB page cache (yanıt süresi <300 ms)
-- [x] N+1 sorgu düzeltmesi: subject listing tek sorguya indirgendi, solver selectinload kullanıyor
-- [x] Solver 3M iterasyon limiti (sonsuz döngü koruması)
-
-### ⬜ Adım 8 — Hata Detayı
-- [ ] İnfeasible schedule daha ayrıntılı debug mesajı (hangi ders atanamadı)
-
-### ⬜ Adım 9 — Dokümantasyon
-- [ ] `APPROACH.md`: problemi nasıl tanımladım, varsayımlar, kapsam dışı, alternatifler
-- [ ] README polish (canlı linkler eklenecek)
-
-### ⬜ Adım 10 — Deploy
+### ⬜ Adım 9 — Deploy
 - [ ] Frontend → Vercel (`NEXT_PUBLIC_API_URL` env var)
-- [ ] Backend → Railway (`scheduler.db` persist volume veya in-memory karar)
+- [ ] Backend → Railway (`scheduler.db` persist volume kararı)
 - [ ] CORS: `ALLOWED_ORIGINS` Railway/Vercel URL'leri ile güncelle
 - [ ] Canlı uçtan uca test
+
+### ⬜ Adım 10 — İyileştirmeler (İsteğe Bağlı)
+- [ ] İnfeasible schedule — hangi (ders, sınıf) bloğu atanamadı detayı
+- [ ] Timetable çakışma görsel uyarısı (red ring — solver garantiliyor ama UI göstergesi)
 
 ---
 
 ## Başarı Kriterleri
 
-- [x] Seed data ile sorunsuz çalışıyor (16 sınıf, 26 öğretmen, 26 ders, 528 ders saati)
-- [x] Infeasible durumda anlamlı hata mesajı ("Geçerli program bulunamadı…")
-- [ ] Infeasible durumda hangi ders atanamadı (detay)
-- [x] UI'da çakışma görsel olarak yok (solver garantiler)
+- [x] Seed data ile sorunsuz çalışıyor (16 sınıf, 26 öğretmen, 26 ders)
+- [x] Infeasible durumda anlamlı hata mesajı
+- [x] UI temiz, prezentabl, dark mode destekli
+- [x] Timetable renkleri benzersiz ve ayırt edilebilir
 - [ ] README self-explanatory (canlı link dahil)
 - [ ] Canlı link çalışıyor
-- [ ] Problem yaklaşımı dokümante edilmiş
 
 ---
 

@@ -427,7 +427,7 @@ export default function SubjectsPage() {
 
       {/* Düzenleme dialogu */}
       <Dialog open={!!editSubject} onOpenChange={(open) => !open && setEditSubject(null)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>Dersi Düzenle</DialogTitle>
           </DialogHeader>

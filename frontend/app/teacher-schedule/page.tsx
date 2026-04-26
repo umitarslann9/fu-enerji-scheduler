@@ -16,21 +16,18 @@ import { FileDown, Loader2 } from 'lucide-react'
 
 const DAYS = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma']
 
-const PALETTE = [
-  { bg: 'hsl(214 100% 93%)', border: 'hsl(214 80% 78%)' },
-  { bg: 'hsl(142 60% 90%)', border: 'hsl(142 50% 63%)' },
-  { bg: 'hsl(280 60% 92%)', border: 'hsl(280 50% 72%)' },
-  { bg: 'hsl(38 90% 90%)', border: 'hsl(38 80% 63%)' },
-  { bg: 'hsl(330 70% 92%)', border: 'hsl(330 60% 72%)' },
-  { bg: 'hsl(174 60% 88%)', border: 'hsl(174 55% 52%)' },
-  { bg: 'hsl(20 90% 92%)', border: 'hsl(20 80% 66%)' },
-  { bg: 'hsl(0 70% 92%)', border: 'hsl(0 65% 68%)' },
-]
+type Color = { bg: string; border: string }
 
-function buildColorMap(lessons: Lesson[]): Map<number, typeof PALETTE[0]> {
+function buildColorMap(lessons: Lesson[]): Map<number, Color> {
   const ids = [...new Set(lessons.map((l) => l.classroom_id))]
-  const map = new Map<number, typeof PALETTE[0]>()
-  ids.forEach((id, i) => map.set(id, PALETTE[i % PALETTE.length]))
+  const map = new Map<number, Color>()
+  ids.forEach((id, i) => {
+    const hue = Math.round((i * 137.508) % 360)
+    map.set(id, {
+      bg: `hsl(${hue} 68% 91%)`,
+      border: `hsl(${hue} 52% 65%)`,
+    })
+  })
   return map
 }
 
@@ -68,8 +65,10 @@ export default function TeacherSchedulePage() {
   const scheduledTeacherIds = schedule
     ? [...new Set(schedule.lessons.map((l) => l.teacher_id))]
     : []
-  const scheduledTeachers = teachers.filter((t) => scheduledTeacherIds.includes(t.id))
-  const colorMap = schedule ? buildColorMap(schedule.lessons) : new Map<number, typeof PALETTE[0]>()
+  const scheduledTeachers = teachers
+    .filter((t) => scheduledTeacherIds.includes(t.id))
+    .sort((a, b) => a.name.localeCompare(b.name, 'tr'))
+  const colorMap = schedule ? buildColorMap(schedule.lessons) : new Map<number, Color>()
   const effectiveId = activeTeacherId || (scheduledTeachers[0] ? String(scheduledTeachers[0].id) : '')
 
   function handleDownloadPdf() {
@@ -143,7 +142,7 @@ export default function TeacherSchedulePage() {
           {schedule && (
             <p className="mt-0.5 text-sm text-muted-foreground">
               {new Date(schedule.generated_at).toLocaleString('tr-TR')} —{' '}
-              <span style={{ color: schedule.is_feasible ? '#16a34a' : '#dc2626' }}>
+              <span className={schedule.is_feasible ? 'font-medium text-emerald-600 dark:text-emerald-400' : 'font-medium text-red-600 dark:text-red-400'}>
                 {schedule.is_feasible ? 'Geçerli' : 'Çözüm Bulunamadı'}
               </span>
             </p>
@@ -156,14 +155,14 @@ export default function TeacherSchedulePage() {
           <Loader2 className="size-4 animate-spin" /> Yükleniyor…
         </div>
       ) : !schedule ? (
-        <div className="rounded-lg border border-dashed p-10 text-center">
+        <div className="rounded-xl border border-dashed border-border p-12 text-center">
           <p className="text-sm text-muted-foreground">
             Henüz program oluşturulmadı. "Program" sekmesinden oluşturun.
           </p>
         </div>
       ) : !schedule.is_feasible ? (
-        <div className="rounded-lg border p-4" style={{ borderColor: '#fca5a5', backgroundColor: '#fef2f2' }}>
-          <p className="text-sm font-medium" style={{ color: '#dc2626' }}>Geçerli program bulunamadı</p>
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-800/50 dark:bg-red-950/20">
+          <p className="text-sm font-medium text-red-600 dark:text-red-400">Geçerli program bulunamadı</p>
           <p className="mt-1 text-sm text-muted-foreground">{schedule.message}</p>
         </div>
       ) : scheduledTeachers.length === 0 ? (
@@ -195,15 +194,15 @@ export default function TeacherSchedulePage() {
             if (!teacher) return null
             const grid = buildGrid(schedule.lessons, teacher.id)
             return (
-              <div className="overflow-x-auto rounded-lg border">
+              <div className="overflow-x-auto rounded-xl border border-border">
                 <table className="w-full border-collapse text-sm">
                   <thead>
                     <tr>
-                      <th className="w-10 border-b border-r bg-muted p-2 text-center text-xs font-medium text-muted-foreground" />
+                      <th className="w-12 border-b border-r border-border bg-muted/60 py-2.5 text-center text-xs font-semibold text-muted-foreground" />
                       {DAYS.map((d) => (
                         <th
                           key={d}
-                          className="border-b border-r bg-muted p-2 text-center text-xs font-medium last:border-r-0"
+                          className="border-b border-r border-border bg-muted/60 px-3 py-2.5 text-center text-xs font-semibold tracking-wide text-muted-foreground last:border-r-0"
                         >
                           {d}
                         </th>
@@ -212,8 +211,8 @@ export default function TeacherSchedulePage() {
                   </thead>
                   <tbody>
                     {Array.from({ length: 8 }, (_, period) => (
-                      <tr key={period} className="border-b last:border-b-0">
-                        <td className="border-r bg-muted p-2 text-center text-xs font-medium text-muted-foreground">
+                      <tr key={period} className="border-b border-border transition-colors duration-150 last:border-b-0 hover:bg-muted/20">
+                        <td className="border-r border-border bg-muted/40 py-3 text-center text-xs font-semibold text-muted-foreground">
                           {period + 1}
                         </td>
                         {Array.from({ length: 5 }, (_, day) => {
@@ -222,23 +221,22 @@ export default function TeacherSchedulePage() {
                           return (
                             <td
                               key={day}
-                              className="border-r p-1 align-top last:border-r-0"
+                              className="border-r border-border p-1.5 align-top last:border-r-0"
                               style={{
-                                backgroundColor: color?.bg ?? undefined,
-                                minWidth: 90,
-                                height: 56,
+                                minWidth: 100,
+                                height: 64,
                               }}
                             >
                               {lesson && (
                                 <div
-                                  className="h-full rounded px-1.5 py-1 text-xs"
+                                  className="h-full rounded-lg px-2 py-1.5 text-xs transition-all duration-150 hover:brightness-95"
                                   style={{
                                     border: `1px solid ${color!.border}`,
                                     backgroundColor: color!.bg,
                                   }}
                                 >
-                                  <p className="font-medium leading-tight">{lesson.classroom_name}</p>
-                                  <p className="mt-0.5 leading-tight text-muted-foreground" style={{ fontSize: 10 }}>
+                                  <p className="font-semibold leading-tight text-zinc-800">{lesson.classroom_name}</p>
+                                  <p className="mt-0.5 text-[10px] leading-tight text-zinc-600">
                                     {lesson.subject_name}
                                   </p>
                                 </div>

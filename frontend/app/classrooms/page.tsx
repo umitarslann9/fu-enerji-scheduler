@@ -280,7 +280,7 @@ export default function ClassroomsPage() {
       )}
 
       <Dialog open={!!editClassroom} onOpenChange={(open) => !open && setEditClassroom(null)}>
-        <DialogContent className="sm:max-w-xs">
+        <DialogContent className="sm:max-w-xs" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>Sınıfı Düzenle — {editClassroom?.name}</DialogTitle>
           </DialogHeader>
