@@ -5,6 +5,11 @@ __pycache__/
 venv/
 *.db
 *.sqlite
+*.db-shm
+*.db-wal
+
+# Logs
+*.log
 
 # Node
 node_modules/
