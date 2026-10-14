@@ -189,7 +189,7 @@ export default function SchedulePage() {
       ) : !schedule ? (
         <div className="rounded-xl border border-dashed border-border p-12 text-center">
           <p className="text-sm text-muted-foreground">
-            Henüz program oluşturulmadı. "Program Oluştur" butonuna basın.
+            Henüz program oluşturulmadı. &quot;Program Oluştur&quot; butonuna basın.
           </p>
         </div>
       ) : !schedule.is_feasible ? (

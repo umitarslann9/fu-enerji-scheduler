@@ -357,7 +357,7 @@ export default function SubjectsPage() {
       ) : subjects.length === 0 ? (
         <p className="text-sm text-muted-foreground">Henüz ders eklenmedi.</p>
       ) : filtered.length === 0 ? (
-        <p className="text-sm text-muted-foreground">"{search}" için sonuç bulunamadı.</p>
+        <p className="text-sm text-muted-foreground">&quot;{search}&quot; için sonuç bulunamadı.</p>
       ) : (
         <Table>
           <TableHeader>

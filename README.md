@@ -7,6 +7,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6.svg?logo=typescript&logoColor=white)](frontend)
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776ab.svg?logo=python&logoColor=white)](backend)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![CI](https://github.com/umitarslann9/fu-enerji-scheduler/actions/workflows/ci.yml/badge.svg)](https://github.com/umitarslann9/fu-enerji-scheduler/actions/workflows/ci.yml)
 
 Weekly school timetable generator for school administrators. You define teachers (each with a 5-day × 8-period availability matrix), classrooms and subjects; a constraint-satisfaction solver written from scratch produces a conflict-free weekly schedule for every class and every teacher, shown as a colour-coded grid and exportable to PDF.
 

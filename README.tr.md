@@ -7,6 +7,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6.svg?logo=typescript&logoColor=white)](frontend)
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776ab.svg?logo=python&logoColor=white)](backend)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![CI](https://github.com/umitarslann9/fu-enerji-scheduler/actions/workflows/ci.yml/badge.svg)](https://github.com/umitarslann9/fu-enerji-scheduler/actions/workflows/ci.yml)
 
 Okul idarecileri için haftalık ders programı otomatik oluşturma uygulaması. Öğretmenleri (5 gün × 8 saatlik müsaitlik matrisiyle), sınıfları ve dersleri tanımlarsınız; sıfırdan yazılmış kısıt tatmin (CSP) çözücüsü her sınıf ve her öğretmen için çakışmasız bir haftalık çizelge üretir, renkli grid olarak gösterir ve PDF olarak indirir.
 

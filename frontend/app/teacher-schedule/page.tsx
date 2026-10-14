@@ -157,7 +157,7 @@ export default function TeacherSchedulePage() {
       ) : !schedule ? (
         <div className="rounded-xl border border-dashed border-border p-12 text-center">
           <p className="text-sm text-muted-foreground">
-            Henüz program oluşturulmadı. "Program" sekmesinden oluşturun.
+            Henüz program oluşturulmadı. &quot;Program&quot; sekmesinden oluşturun.
           </p>
         </div>
       ) : !schedule.is_feasible ? (

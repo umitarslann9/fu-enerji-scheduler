@@ -3,11 +3,10 @@ Veri modellerini hızlıca test eden script.
 Gerçek CRUD endpoint'lerini yazmadan önce modellerin
 doğru kurgulandığından emin olmak için.
 """
-from sqlmodel import Session, select
+from sqlmodel import Session
 from app.db.database import engine, init_db
 from app.models.schemas import (
-    Teacher, Classroom, Subject, ClassroomSubjectLink,
-    default_availability, parse_availability,
+    Teacher, Classroom, Subject, parse_availability,
 )
 
 

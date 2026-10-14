@@ -259,7 +259,7 @@ export default function TeachersPage() {
         <p className="text-sm text-muted-foreground">Henüz öğretmen eklenmedi.</p>
       ) : filtered.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          "{search}" için sonuç bulunamadı.
+          &quot;{search}&quot; için sonuç bulunamadı.
         </p>
       ) : (
         <Table>

@@ -163,10 +163,10 @@ def update(session: Session, subject_id: int, data: SubjectUpdate) -> SubjectRea
 
             if removed_classroom_ids:
                 lessons = [
-                    l for l in lessons
+                    lesson for lesson in lessons
                     if not (
-                        l.get('subject_id') == subject_id
-                        and l.get('classroom_id') in removed_classroom_ids
+                        lesson.get('subject_id') == subject_id
+                        and lesson.get('classroom_id') in removed_classroom_ids
                     )
                 ]
 

@@ -24,7 +24,6 @@ export default function DashboardPage() {
   const [seeding, setSeeding] = useState(false)
 
   function load() {
-    setLoading(true)
     Promise.all([
       api.teachers.list(),
       api.classrooms.list(),
@@ -56,6 +55,7 @@ export default function DashboardPage() {
       toast.success(
         `Demo veri yüklendi — ${result.classrooms} sınıf, ${result.teachers} öğretmen, ${result.subjects} ders.`
       )
+      setLoading(true)
       load()
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Seed hatası')
