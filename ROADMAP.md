@@ -3,11 +3,11 @@ Fu Enerji Case Study — Ders Programı Çizelgeleme Uygulaması
 
 ---
 
-## Canlı Linkler
+## Deploy Durumu
 
-- **Uygulama:** https://fu-enerji-scheduler.vercel.app
-- **API / Swagger:** https://fu-enerji-scheduler-production.up.railway.app/docs
-- **Repo:** https://github.com/nadezhda648/fu-enerji-scheduler
+- **Frontend (Vercel):** https://fu-enerji-scheduler.vercel.app — ayakta, ancak backend olmadan kullanılamıyor
+- **Backend (Railway):** ücretsiz plan sona erdi, servis kapalı (404). Yerel kurulum için README'ye bakın.
+- **Repo:** https://github.com/umitarslann9/fu-enerji-scheduler
 
 ---
 
@@ -132,7 +132,7 @@ Fu Enerji Case Study — Ders Programı Çizelgeleme Uygulaması
 - [x] UI temiz, prezentabl, dark mode destekli
 - [x] Timetable renkleri benzersiz ve ayırt edilebilir
 - [x] README self-explanatory (canlı link dahil)
-- [x] Canlı link çalışıyor
+- [ ] Canlı link çalışıyor (backend kapalı, yerel kurulum README'de)
 
 ---
 

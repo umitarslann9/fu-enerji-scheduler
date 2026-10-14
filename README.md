@@ -1,81 +1,141 @@
 # Fu Enerji Scheduler
 
-Okul idarecileri için haftalık ders programı otomatik oluşturma uygulaması. Öğretmenleri, sınıfları ve dersleri tanımlarsınız; sistem kısıt tatmin algoritmasıyla çakışmasız bir haftalık çizelge üretir.
+**🇬🇧 English · [🇹🇷 Türkçe](README.tr.md)**
 
-## Canlı Demo
+[![Next.js 16](https://img.shields.io/badge/Next.js-16-000000.svg?logo=nextdotjs)](frontend)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.136-009688.svg?logo=fastapi)](backend)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6.svg?logo=typescript&logoColor=white)](frontend)
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776ab.svg?logo=python&logoColor=white)](backend)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-| | URL |
+Weekly school timetable generator for school administrators. You define teachers (each with a 5-day × 8-period availability matrix), classrooms and subjects; a constraint-satisfaction solver written from scratch produces a conflict-free weekly schedule for every class and every teacher, shown as a colour-coded grid and exportable to PDF.
+
+Built in three days as a hiring case study for Fu Enerji: Next.js 16 + TypeScript on the front, FastAPI + SQLModel on the back, and a backtracking solver with no black-box dependencies, so every scheduling decision can be explained.
+
+![Weekly schedule grid](docs/screenshots/schedule.png)
+
+> **Status:** the hosted backend (Railway free tier) is offline, so the Vercel-hosted frontend cannot be used on its own at the moment. Run the project locally with the two commands below. The UI is in Turkish.
+
+## Run locally
+
+**Backend** — Python 3.11+ and [uv](https://docs.astral.sh/uv/):
+
+```bash
+cd backend
+uv sync
+uv run python main.py      # → http://localhost:8000   (Swagger UI at /docs)
+```
+
+**Frontend** — Node 20+:
+
+```bash
+cd frontend
+npm install
+npm run dev                # → http://localhost:3000
+```
+
+Open http://localhost:3000, press **Demo Veri Yükle** (load demo data) on the dashboard, then go to **Programlar → Program Oluştur** (generate schedule). The demo set has 16 classes, 26 teachers and 26 subjects at roughly 82 % slot occupancy; the solver places all of it in well under a second on a laptop.
+
+Environment variables: `NEXT_PUBLIC_API_URL` for the frontend (default `http://localhost:8000`) and `ALLOWED_ORIGINS` for the backend CORS whitelist (default `http://localhost:3000`, see `backend/.env.example`).
+
+## Features
+
+| Page | What it does |
 |---|---|
-| **Uygulama** | https://fu-enerji-scheduler.vercel.app |
-| **API** | https://fu-enerji-scheduler-production.up.railway.app |
-| **API Docs** | https://fu-enerji-scheduler-production.up.railway.app/docs |
+| Dashboard | Stat cards, status of the last generated schedule, one-click demo data |
+| Teachers (*Öğretmenler*) | CRUD · branch · on-leave flag · interactive 5×8 availability matrix · free-hour counter |
+| Classrooms (*Sınıflar*) | CRUD · grade + section + student count (the display name such as `9-A` is derived) |
+| Subjects (*Dersler*) | CRUD · bidirectional branch ↔ teacher sync · multi-classroom assignment |
+| Schedules (*Programlar*) | Weekly grid per class · class dropdown · PDF download |
+| Teacher schedules (*Öğretmen Programları*) | Weekly grid per teacher · teacher dropdown · PDF download |
 
-> Uygulamayı açınca **Dashboard → Demo Veri Yükle** butonuna basın. 16 sınıf, 26 öğretmen ve 26 ders otomatik yüklenir. Ardından **Programlar → Program Oluştur** ile solver'ı çalıştırın.
+Every list page follows the same pattern: add button top-right, collapsible form, instant search. Dark mode follows the system theme and can be toggled from the navbar.
+
+## Screenshots
+
+| Dashboard | Teachers |
+|---|---|
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Teachers](docs/screenshots/teachers.png) |
+
+| Subjects | Teacher schedule |
+|---|---|
+| ![Subjects](docs/screenshots/subjects.png) | ![Teacher schedule](docs/screenshots/teacher-schedule.png) |
+
+![Schedule grid in dark mode](docs/screenshots/schedule-dark.png)
+
+## How the solver works
+
+The problem: for every (subject, classroom) pair, place as many period slots as the weekly hours of the subject so that no teacher and no classroom is in two places at once, and every teacher is available in the slots they get.
+
+```
+1. Split      — split weekly hours into daily blocks of at most 2 consecutive periods
+                1h=[1]  2h=[2]  3h=[2,1]  4h=[2,2]  5h=[2,2,1]  6h=[2,2,2]
+
+2. Expand     — one BlockNeed per (subject, classroom, block)
+
+3. MRV sort   — order the needs by the number of free slots of the teacher, ascending
+                (most constrained first → fail early, backtrack less)
+
+4. Backtrack  — no valid slot for a need? undo the previous assignment and try its next option
+                (3-million-iteration cap as an infinite-loop guard)
+
+5. Spread     — rank candidate slots by the existing load of the teacher on that day,
+                so blocks spread across the week instead of piling up
+```
+
+**Hard constraints:** no teacher clash · no classroom clash · teacher availability matrix · periods inside a block are consecutive · a (subject, classroom) block appears at most once per day.
+
+**Known limitations:** when no solution exists the solver reports infeasibility but not *which* block could not be placed, and teacher preferences (soft constraints) are not modelled. The full decision log (25 design decisions with their rationale) and the step-by-step build log are in [ROADMAP.md](ROADMAP.md) (Turkish).
+
+## Data model
+
+- **Teacher → Subject:** one-to-many; each subject has exactly one teacher, and the `branch` of the teacher names the subject.
+- **Classroom:** `grade` + `section` → derived `name` (`9-A`); stores `student_count`.
+- **Classroom ↔ Subject:** many-to-many through the `ClassroomSubjectLink` association table.
+- **Availability:** 5 × 8 boolean matrix, stored as a JSON string on the teacher.
+- **ScheduleResult:** the generated timetable, persisted in SQLite as `lessons_json` together with an `is_feasible` flag.
+
+### Cascade rules
+
+When data changes, the stored schedule is either updated in place or marked stale. Each rule runs inside a single transaction.
+
+| Trigger | Effect |
+|---|---|
+| Teacher branch changes | Related `Subject.name` rows + `subject_name` inside `lessons_json` |
+| Classroom grade/section changes | `Classroom.name` re-derived + `classroom_name` inside `lessons_json` |
+| Subject renamed | `subject_name` inside `lessons_json` |
+| Subject teacher changes | `lessons_json` updated and `is_feasible = False` (the new teacher may not be free in the old slots) |
+| Classroom removed from a subject | Lessons of that classroom removed from `lessons_json` |
+| Subject weekly hours change | `is_feasible = False` — regenerate |
+| Teacher goes on / returns from leave | `is_feasible = False` — regenerate |
+
+## API
+
+| Method | Path | Description |
+|---|---|---|
+| GET / POST | `/teachers` | List / create |
+| GET / PUT / DELETE | `/teachers/{id}` | Read / partial update / delete (409 while the teacher still has subjects) |
+| GET / POST | `/classrooms` | List / create |
+| GET / PUT / DELETE | `/classrooms/{id}` | Read / update / delete |
+| GET / POST | `/subjects` | List / create |
+| GET / PUT / DELETE | `/subjects/{id}` | Read / update / delete |
+| POST | `/schedule/generate` | Run the solver and persist the result |
+| GET | `/schedule` | Return the last generated schedule |
+| POST | `/seed` | Load demo data (resets existing data) |
+| GET | `/health` | Health check |
+
+Interactive docs are served by FastAPI at `/docs`.
 
 ## Stack
 
-| Katman | Teknoloji | Gerekçe |
+| Layer | Technology | Why |
 |---|---|---|
-| Frontend | Next.js 16 + TypeScript + Tailwind 4 + shadcn/ui | App Router, Vercel uyumu |
-| Backend | FastAPI + SQLModel + SQLite | Pydantic validation, async, servis katmanı mimarisi |
-| Scheduler | CSP + Backtracking (sıfırdan yazıldı) | Kara kutu yok; her karar savunulabilir |
-| Deploy | Vercel (frontend) + Railway (backend) | Vercel Python Functions kısıtlı; Railway stabil |
+| Frontend | Next.js 16 + TypeScript + Tailwind 4 + shadcn/ui | App Router, typed API client, Vercel-friendly |
+| Backend | FastAPI + SQLModel + SQLite | Pydantic validation, async, router → service → DB layering |
+| Scheduler | CSP + backtracking, written from scratch | No black box; every decision is defensible |
+| Deploy (original) | Vercel (frontend) + Railway (backend) | Python functions on Vercel were too limited; Railway offered a persistent volume |
 
-## Uygulama Sayfaları
-
-| Sayfa | Açıklama |
-|---|---|
-| Dashboard | İstatistik kartları, son program durumu, Demo Veri Yükle butonu |
-| Öğretmenler | CRUD · branş · izin durumu · 5×8 müsaitlik matrisi · boş saat sayacı |
-| Sınıflar | CRUD · sınıf + şube + öğrenci sayısı |
-| Dersler | CRUD · branş-öğretmen bidirectional sync · çoklu sınıf seçimi |
-| Programlar | Haftalık grid · sınıf bazlı dropdown · PDF indirme |
-| Öğretmen Programları | Haftalık grid · öğretmen bazlı dropdown · PDF indirme |
-
-## Veri Modeli
-
-- **Teacher → Subject:** 1-to-many (her ders tek öğretmen); `branch` alanı taşır
-- **Classroom:** `grade` + `section` → `name` türetilir (`"9-A"`); `student_count` saklanır
-- **Classroom ↔ Subject:** many-to-many (`ClassroomSubjectLink` association table)
-- **Availability:** 5×8 boolean matrix, JSON string olarak DB'de saklanır
-- **ScheduleResult:** Üretilen program `lessons_json` (JSON) olarak SQLite'ta kalıcı saklanır
-
-## Cascade Güncelleme Kuralları
-
-Veriler değiştiğinde mevcut program otomatik güncellenir veya geçersiz işaretlenir. Tüm işlemler tek transaction içinde atomiktir.
-
-| Tetikleyici | Etkilenen |
-|---|---|
-| Öğretmen branşı değişir | İlgili `Subject.name` kayıtları + `lessons_json` içindeki `subject_name` |
-| Sınıf grade/section değişir | `Classroom.name` yeniden türetilir + `lessons_json` içindeki `classroom_name` |
-| Ders adı değişir | `lessons_json` içindeki `subject_name` güncellenir |
-| Dersin öğretmeni değişir | `lessons_json` güncellenir + `is_feasible = False` (yeni öğretmen eski slotlarda müsait olmayabilir) |
-| Dersten sınıf çıkarılır | O sınıfa ait dersler `lessons_json`'dan silinir |
-| Dersin haftalık saati değişir | `is_feasible = False` — yeniden oluşturma gerekir |
-| Öğretmen izne ayrılır / döner | `is_feasible = False` — yeniden oluşturma gerekir |
-
-## Scheduler Algoritması (CSP + Backtracking)
-
-Problem: Her `(Subject, Classroom)` çifti için haftalık saat kadar ders dilimi ata; hiçbir öğretmen veya sınıf aynı anda iki yerde olmasın.
-
-```
-1. Split    — haftalık saati günlük ardışık bloklara böl (max 2'li; haftaya yayılır)
-               1h=[1]  2h=[2]  3h=[2,1]  4h=[2,2]  5h=[2,2,1]  6h=[2,2,2]
-
-2. Expand   — (subject, classroom) × blok sayısı kadar BlockNeed üret
-
-3. MRV sort — öğretmen müsaitlik sayısına göre artan sırala
-               (en kısıtlı öğretmenden başla → erken hata, az backtrack)
-
-4. Backtrack — geçerli slot yoksa bir önceki atamaya geri dön
-               (3 milyon iterasyon limiti — sonsuz döngü koruması)
-
-5. Spread   — teacher_day_load ile slot sırala → bloklar haftaya doğal yayılır
-```
-
-**Hard constraints:** öğretmen çakışması yok · sınıf çakışması yok · availability matrisi · blok içindeki periyotlar ardışık · aynı (ders, sınıf) bloğu aynı günde tekrar yok
-
-## Proje Yapısı
+## Project structure
 
 ```
 fu-enerji-scheduler/
@@ -83,76 +143,47 @@ fu-enerji-scheduler/
 │   ├── app/
 │   │   ├── page.tsx                # Dashboard
 │   │   ├── providers.tsx           # next-themes ThemeProvider
-│   │   ├── teachers/               # Öğretmen CRUD + müsaitlik matrisi
-│   │   ├── classrooms/             # Sınıf CRUD
-│   │   ├── subjects/               # Ders CRUD + branş-öğretmen sync
-│   │   ├── schedule/               # Haftalık program grid (sınıf bazlı)
-│   │   └── teacher-schedule/       # Haftalık program grid (öğretmen bazlı)
+│   │   ├── teachers/               # Teacher CRUD + availability matrix
+│   │   ├── classrooms/             # Classroom CRUD
+│   │   ├── subjects/               # Subject CRUD + branch ↔ teacher sync
+│   │   ├── schedule/               # Weekly grid per class
+│   │   └── teacher-schedule/       # Weekly grid per teacher
 │   ├── components/
-│   │   ├── nav.tsx                 # Navigasyon + dark mode toggle
-│   │   └── availability-grid.tsx   # 5×8 interaktif müsaitlik matrisi
+│   │   ├── nav.tsx                 # Navigation + dark-mode toggle
+│   │   └── availability-grid.tsx   # Interactive 5×8 availability matrix
 │   └── lib/
 │       ├── api.ts                  # Typed fetch client
-│       └── types.ts                # Backend şemalarına karşılık TypeScript tipleri
+│       └── types.ts                # TypeScript mirrors of the backend schemas
 ├── backend/
+│   ├── main.py                     # uvicorn entry point
+│   ├── tests/
 │   └── app/
-│       ├── main.py                 # FastAPI app + CORS middleware
+│       ├── main.py                 # FastAPI app + CORS
 │       ├── db/database.py          # SQLite engine + idempotent migration
-│       ├── models/schemas.py       # SQLModel tablo modelleri + Pydantic şemaları
+│       ├── models/schemas.py       # SQLModel tables + Pydantic schemas
 │       ├── routers/                # teachers / classrooms / subjects / schedule / seed
-│       ├── services/               # İş mantığı + cascade update katmanı
-│       └── scheduler/solver.py     # CSP + Backtracking algoritması
-└── ROADMAP.md
+│       ├── services/               # Business logic + cascade updates
+│       └── scheduler/solver.py     # CSP + backtracking solver
+├── docs/screenshots/
+├── ROADMAP.md                      # Decision log + build log (Turkish)
+└── LICENSE
 ```
 
-## API Referansı
+## Design system
 
-| Method | Yol | Açıklama |
-|---|---|---|
-| GET / POST | `/teachers` | Liste / ekle |
-| GET / PUT / DELETE | `/teachers/{id}` | Tek kayıt / güncelle / sil |
-| GET / POST | `/classrooms` | Liste / ekle |
-| GET / PUT / DELETE | `/classrooms/{id}` | Tek kayıt / güncelle / sil |
-| GET / POST | `/subjects` | Liste / ekle |
-| GET / PUT / DELETE | `/subjects/{id}` | Tek kayıt / güncelle / sil |
-| POST | `/schedule/generate` | Solver'ı çalıştır, sonucu DB'ye kaydet |
-| GET | `/schedule` | Son üretilen programı döndür |
-| POST | `/seed` | Demo veri yükle (mevcut veriyi sıfırlar) |
-| GET | `/health` | Servis sağlık kontrolü |
+- **Font:** Inter 400/500/600 via `next/font` (no layout shift)
+- **Colours:** zinc neutral scale with a single blue-600 accent
+- **Dark mode:** `next-themes` with `attribute="class"`, follows the system theme, Sun/Moon toggle in the navbar
+- **Timetable colours:** golden-angle hue stepping (`i × 137.5° mod 360°`), so even 26 subjects get clearly distinct colours
 
-## Yerel Kurulum
+## Out of scope
 
-### Backend
-```bash
-cd backend
-uv sync
-uv run python main.py
-# → http://localhost:8000
-```
+Authentication · multiple users · room/lab allocation · calendar export (.ics) · teacher preferences (soft constraints) · substitute teachers
 
-### Frontend
-```bash
-cd frontend
-npm install
-npm run dev
-# → http://localhost:3000
-```
+## AI usage
 
-`NEXT_PUBLIC_API_URL` tanımlanmazsa varsayılan `http://localhost:8000`.  
-`ALLOWED_ORIGINS` tanımlanmazsa varsayılan `http://localhost:3000`.
+Architecture, algorithm design and trade-off decisions are my own. Claude Code was used for boilerplate, syntax, debugging and best-practice checks.
 
-## Tasarım Sistemi
+## License
 
-- **Font:** Inter (400/500/600) — `next/font` ile yüklü, layout shift yok
-- **Renkler:** zinc-50/100/200/900/950 nötr skalası; blue-600 primary accent
-- **Dark mode:** `next-themes` (`attribute="class"`); sistem teması destekli; navbar'da Sun/Moon toggle
-- **Timetable renkleri:** golden-angle algoritması (`i × 137.5° mod 360°`) — 26 derste bile hiçbir iki renk çakışmaz
-
-## Kapsam Dışı
-
-Authentication · çoklu kullanıcı · oda/laboratuvar tahsisi · takvim export (.ics) · öğretmen tercihleri (soft constraint) · yedek öğretmen
-
-## AI Kullanımı
-
-Mimari kararlar, algoritma tasarımı, trade-off değerlendirmeleri → benim.  
-Claude Code: boilerplate üretimi, syntax, hata ayıklama, best practice kontrolü.
+[MIT](LICENSE) © 2026 Ümit Arslan
